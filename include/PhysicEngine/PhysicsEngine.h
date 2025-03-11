@@ -8,9 +8,15 @@ static const float GRAVITY = 9.8;
 class PhysicsEngine
 {
 public:
-    std::vector<PhysicsObject> objectList;
+    std::vector<PhysicsObject*> objectList;
+    std::vector<glm::vec3> *instanceBuffer;
+    int instance_id_counter = 0;
 
-    PhysicsEngine();
+    PhysicsEngine()
+    {
+        objectList = std::vector<PhysicsObject*>();
+    };
+
     static PhysicsEngine *getInstance()
     {
         if (instance == nullptr)
@@ -23,30 +29,24 @@ public:
     // TODO
     //  update value of every object created
     //  maybe iterate to all PhysicObj and compute
-    void update(float deltaTime){
-        for(PhysicsObject &obj : objectList){
-            obj.updatePhysics(deltaTime);
-            instanceBuffer[obj.getInstanceId()] = obj.localOrigin;
+    void update(float deltaTime)
+    {
+        for (int i = 0; i < objectList.size(); i++)
+        {
+            (*objectList[i]).updatePhysics(deltaTime);
+            (*instanceBuffer)[(*objectList[i]).getInstanceId()] = (*objectList[i]).position;
         }
     };
 
-    // TODO
-    //  add PhysicObject to this class variable
-    void addPhysicObject()
+    //  add PhysicObject to this class objectList
+    void addPhysicObject(MeshShape shape, glm::vec3 pos)
     {
-        PhysicsObject new_Obj(CUBE, glm::vec3(0.0f, 10.0f, 0.0f), glm::vec4(0.8f, 0.0f, 0.0f, 1.0f));
+        PhysicsObject* new_Obj = new PhysicsObject(CUBE, pos);
         objectList.push_back(new_Obj);
-
-        new_Obj.setInstanceId(instanceBuffer.size() - 1); //iid -> first index of its localOrigin data
-        instanceBuffer.push_back(new_Obj.localOrigin);
-    };
-
-    void setInstanceBuffer(std::vector<glm::mat4> &buffer)
-    {
-        instanceBuffer = buffer;
+        instanceBuffer->push_back(new_Obj->position);
+        new_Obj->setInstanceId(instance_id_counter++); // iid -> first index of its localOrigin data
     }
 
 private:
     static PhysicsEngine *instance;
-    std::vector<glm::mat4> instanceBuffer;
 };

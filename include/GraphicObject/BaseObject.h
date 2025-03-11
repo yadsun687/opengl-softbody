@@ -19,7 +19,7 @@ enum MeshShape
 // Cube mesh data
 const MeshData cube = {
 
-    //VERTICES
+    // VERTICES
     {// front face
      -0.5f, -0.5f, 0.5f,
      -0.5f, 0.5f, 0.5f,
@@ -31,7 +31,7 @@ const MeshData cube = {
      -0.5f, 0.5f, 1.5f,
      -0.5f, -0.5f, 1.5f},
 
-     //INDICES
+    // INDICES
     {0, 1, 2,
      2, 3, 0,
 
@@ -53,58 +53,54 @@ const MeshData cube = {
 
      // left
      7, 6, 1,
-     1, 0, 7}
-};
-
-
+     1, 0, 7}};
 
 class BaseObject
 {
 public:
-    BaseObject(MeshShape shape , glm::vec4 color)
+    BaseObject(MeshShape shape, glm::vec4 color)
     {
         switch (shape)
         {
         case CUBE:
             mesh_data = cube;
             break;
-        default: 
+        default:
             mesh_data = cube;
             break;
         }
         mesh_color = color;
-        localOrigin = glm::mat4(1.0f);
+        // localOrigin = glm::mat4(1.0f);
+        position = glm::vec3(1.0f);
     }
 
     MeshData mesh_data;
     glm::vec4 mesh_color;
-    glm::mat4 localOrigin;
+    // glm::mat4 localOrigin;
+    glm::vec3 position;
 
-    void rotate(float deg, glm::vec3 axis)
-    {
-        localOrigin = glm::rotate(localOrigin, glm::radians(deg), axis);
-    }
+    // void rotate(float deg, glm::vec3 axis)
+    // {
+    //     localOrigin = glm::rotate(localOrigin, glm::radians(deg), axis);
+    // }
     void translate(glm::vec3 v)
     {
-        localOrigin = glm::translate(localOrigin, v);
+        position += v;
     }
-    void resetTransform()
-    {
-        localOrigin = glm::mat4(1.0f);
-    }
+    // void resetTransform()
+    // {
+    //     localOrigin = glm::mat4(1.0f);
+    // }
 
-    void loadToBuffer(std::vector<float> &vertList){
-        for(int i = 0 ; i < mesh_data.vertices.size() ; i++){
+    void loadToBuffer(std::vector<float> &vertList)
+    {
+        for (int i = 0; i < mesh_data.vertices.size(); i++)
+        {
             vertList.push_back(mesh_data.vertices[i]);
-            if(i%3 == 2){
-                vertList.insert(vertList.end(), { mesh_color.r, mesh_color.g, mesh_color.b, mesh_color.a  });
+            if (i % 3 == 2)
+            {
+                vertList.insert(vertList.end(), {mesh_color.r, mesh_color.g, mesh_color.b, mesh_color.a});
             }
         }
-
-        for(auto &i : vertList){
-            std::cout<<i<<",";
-        }
-        std::cout<<"\n";
     }
-
 };

@@ -7,7 +7,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <vector>
 
-#include <GraphicObject/BaseObject.h>
+#include <PhysicEngine/PhysicsObject.h>
 #include <GraphicEngine/Camera.h>
 
 class GraphicEngine
@@ -20,26 +20,9 @@ public:
         camera = Camera();
         projection = glm::mat4(1.0f);
 
-        //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
-        float offset = 0.5f;
-        for (int y = -10; y < 10; y += 2)
-        {
-            for (int x = -10; x < 10; x += 2)
-            {
-                for (int z = -10; z < 10; z += 2)
-                {
-                    // create 1000 cube with different position
-                    BaseObject c(CUBE, glm::vec4(0.2f, 1.0f, 0.5, 1.0f));
-                    // BaseObject c(CUBE , glm::vec4(3.0f , 3.0f , 3.0f , 1.0f) );
-                    c.translate(glm::vec3((float)x + offset, (float)y + offset, float(z) + offset));
-                    cubeLists.push_back(c);
-                    // also append model matrix to vertex,model buffer
-                    cubeModelInstance.push_back(c.localOrigin); // location 2
-                }
-            }
-        }
-        cubeLists[0].loadToBuffer(vertexLists); // location 0,1
-        //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
+        vertexLists = std::vector<float>();
+        indexLists = std::vector<unsigned int>();
+        modelInstance = std::vector<glm::vec3>();
 
         deltaTime = glfwGetTime();
 
@@ -57,8 +40,6 @@ public:
 
         std::cout << "Graphic Engine start running...\n";
     }
-
-    ~GraphicEngine();
 
     // initialize program window
     int initWindow(int width, int height, const char *title)
@@ -86,6 +67,7 @@ public:
     }
 
     // check if window still running
+    
     bool engineWindowShouldClose()
     {
         return glfwWindowShouldClose(window);
@@ -112,18 +94,18 @@ public:
         glEnable(GL_DEPTH_TEST);
 
         glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+        glGenBuffers(1, &EBO);
+        glGenBuffers(1, &instanceVBO); 
 
         // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
         glBindVertexArray(VAO);
 
-        glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO); // begin config VBO
         glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_DYNAMIC_DRAW);
 
-        // using index to draw instead
-        glGenBuffers(1, &EBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // begin config EBO
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, cubeLists[0].mesh_data.indices.size() * sizeof(unsigned int), cubeLists[0].mesh_data.indices.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_DYNAMIC_DRAW);
 
         // define data format stored in vertex buffers
         // [attribute No.0 | 3 elements (x,y,z) | float type | no normalized | total size | offset 0]
@@ -133,27 +115,19 @@ public:
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void *)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
-        glGenBuffers(1, &instanceVBO); // begin config instanceVBO
-        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        // transformation matrix buffer for each cube
-        // we will change each object position through this "cubeModelInstance" array
-        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * cubeModelInstance.size(), cubeModelInstance.data(), GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        std::size_t vec4Size = sizeof(glm::vec4);
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void *)0);
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void *)(1 * vec4Size));
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void *)(2 * vec4Size));
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void *)(3 * vec4Size));
-        glVertexAttribDivisor(2, 1);
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribDivisor(5, 1);
         //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
+        // begin config instanceVBO
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        // position instance buffer for each cube
+        // we will change each object position through this "modelInstance" array
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * modelInstance.size(), modelInstance.data(), GL_DYNAMIC_DRAW);
+
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+        glVertexAttribDivisor(2, 1);
+
 
         // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -163,7 +137,7 @@ public:
         glBindVertexArray(0);
     }
 
-    void engineUpdate(void (*user_callback)())
+    void engineUpdate(void (*user_callback)(float dt))
     {
         // compute delta time
         float current_time = static_cast<float>(glfwGetTime());
@@ -177,24 +151,52 @@ public:
         shader->use();
 
         // custom callback
-        user_callback();
+        user_callback(deltaTime);
 
         glBindVertexArray(VAO);
 
         // camera view update
         shader->setMat4("view", camera.GetViewMatrix());
 
-        // glDrawArrays(GL_TRIANGLES, 0 , cubeVertList.size()/3 ); //draw using vertex coord
-        // glDrawElements(GL_TRIANGLES, cube->mesh_data.indices.size(), GL_UNSIGNED_INT, 0); // draw using vertex indices
-        glDrawElementsInstanced(GL_TRIANGLES, cubeLists[0].mesh_data.indices.size(), GL_UNSIGNED_INT, 0, cubeLists.size()); // draw instances
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glBufferSubData(GL_ARRAY_BUFFER , 0 , modelInstance.size() * sizeof(glm::vec3) , modelInstance.data());
+        glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind
+        glDrawElementsInstanced(GL_TRIANGLES, indexLists.size(), GL_UNSIGNED_INT, 0, modelInstance.size()); // draw instances
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    void updateVertexVBO(){
+        glBindBuffer(GL_ARRAY_BUFFER, VBO); // begin config VBO
+        glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_DYNAMIC_DRAW);
+        // glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+    void updateIndexEBO(){
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // begin config EBO
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_DYNAMIC_DRAW);
+    }
+    void updateinstanceVBO(){
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        // transformation matrix buffer for each cube
+        // we will change each object position through this "modelInstance" array
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * modelInstance.size(), modelInstance.data(), GL_DYNAMIC_DRAW);
+        // glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    std::vector<glm::vec3>* getInstanceBuffer(){
+        return &modelInstance;
+    }
+    std::vector<float>& getVertexBuffer(){
+        return vertexLists;
+    }
+    std::vector<unsigned int>& getIndexBuffer(){
+        return indexLists;
+    }
+
 private:
-    const int SCR_WIDTH = 800;
-    const int SCR_HEIGHT = 480;
+    const int SCR_WIDTH = 1080;
+    const int SCR_HEIGHT = 720;
 
     GLFWwindow *window = nullptr;
     Shader *shader;
@@ -203,13 +205,15 @@ private:
 
     Camera camera;
 
-    std::vector<float> vertexLists;
-    std::vector<unsigned int> indexLists;
+
     BaseObject *cube;
 
     //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
     std::vector<BaseObject> cubeLists;
-    std::vector<glm::mat4> cubeModelInstance;
+    //these will be binded as a buffer
+    std::vector<float> vertexLists;
+    std::vector<unsigned int> indexLists;
+    std::vector<glm::vec3> modelInstance;
     //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
 
     // camera
