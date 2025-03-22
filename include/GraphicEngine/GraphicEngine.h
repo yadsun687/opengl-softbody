@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <vector>
-
+#include <GraphicEngine/TextRenderer.h>
 #include <PhysicEngine/PhysicsObject.h>
 #include <GraphicEngine/Camera.h>
 
@@ -35,7 +35,12 @@ public:
             std::cout << "Failed to initialize GLAD" << std::endl;
         }
 
-        shader = new Shader("src/shader.vs", "src/shader.fs");
+        // init shader after init glfw
+        // use absolute path for now
+        // change to your project path
+        shader = new Shader("D:/CODE/ComGraphic/project-space/src/shader.vs", "D:/CODE/ComGraphic/project-space/src/shader.fs");
+        text_renderer = new TextRenderer(SCR_WIDTH, SCR_HEIGHT);
+
         initBuffer();
 
         std::cout << "Graphic Engine start running...\n";
@@ -51,7 +56,6 @@ public:
 #ifdef __APPLE__
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-
         window = glfwCreateWindow(width, height, "TestWindow", NULL, NULL);
         if (window == NULL)
         {
@@ -67,7 +71,7 @@ public:
     }
 
     // check if window still running
-    
+
     bool engineWindowShouldClose()
     {
         return glfwWindowShouldClose(window);
@@ -92,42 +96,47 @@ public:
 
         // z-axis drawing order
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
         glGenBuffers(1, &EBO);
-        glGenBuffers(1, &instanceVBO); 
+        glGenBuffers(1, &instanceVBO);
+        glGenBuffers(1, &colorVBO);
 
         // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
         glBindVertexArray(VAO);
 
         glBindBuffer(GL_ARRAY_BUFFER, VBO); // begin config VBO
-        glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_STATIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // begin config EBO
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_STATIC_DRAW);
 
         // define data format stored in vertex buffers
         // [attribute No.0 | 3 elements (x,y,z) | float type | no normalized | total size | offset 0]
-        // first 3 for vertex xyz, next 4 for color rgba
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void *)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void *)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
+        // this one for vertex xyz
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0); // location = 0
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
-        // begin config instanceVBO
+        //  config instanceVBO
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
         // position instance buffer for each cube
         // we will change each object position through this "modelInstance" array
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * modelInstance.size(), modelInstance.data(), GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(1); // location = 1
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+        glVertexAttribDivisor(1, 1);
 
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
+        // config colorVBO
+        glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * colorInstance.size(), colorInstance.data(), GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(2); // location = 2
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void *)0);
         glVertexAttribDivisor(2, 1);
-
 
         // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -148,51 +157,81 @@ public:
         processInput();
         processMouse();
 
+        user_callback(deltaTime);
+
         shader->use();
 
         // custom callback
-        user_callback(deltaTime);
 
         glBindVertexArray(VAO);
 
         // camera view update
         shader->setMat4("view", camera.GetViewMatrix());
 
+        // update position buffer
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        glBufferSubData(GL_ARRAY_BUFFER , 0 , modelInstance.size() * sizeof(glm::vec3) , modelInstance.data());
+        glBufferSubData(GL_ARRAY_BUFFER, 0, modelInstance.size() * sizeof(glm::vec3), modelInstance.data());
         glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind
+        // update color buffer
+        // glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+        // glBufferSubData(GL_ARRAY_BUFFER, 0, colorInstance.size() * sizeof(glm::vec4), colorInstance.data());
+        // glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind
         glDrawElementsInstanced(GL_TRIANGLES, indexLists.size(), GL_UNSIGNED_INT, 0, modelInstance.size()); // draw instances
+
+        // text must draw last in order to blend with environment
+        glm::vec3 cam_pos = this->camera.Position;
+        this->text_renderer->renderText(
+            "Pos (" + std::to_string(cam_pos.x) + "," + std::to_string(cam_pos.y) + "," + std::to_string(cam_pos.x) + ")",
+            25, 100, 1.0f,
+            glm::vec3(0.0f, 1.0f, 0.0f)
+
+        );
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    void updateVertexVBO(){
+    void updateVertexVBO()
+    {
         glBindBuffer(GL_ARRAY_BUFFER, VBO); // begin config VBO
-        glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_DYNAMIC_DRAW);
-        // glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBufferData(GL_ARRAY_BUFFER, vertexLists.size() * sizeof(float), vertexLists.data(), GL_STATIC_DRAW);
     }
-    void updateIndexEBO(){
+    void updateIndexEBO()
+    {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // begin config EBO
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexLists.size() * sizeof(unsigned int), indexLists.data(), GL_STATIC_DRAW);
     }
-    void updateinstanceVBO(){
+    void updateInstanceVBO()
+    {
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        // transformation matrix buffer for each cube
-        // we will change each object position through this "modelInstance" array
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * modelInstance.size(), modelInstance.data(), GL_DYNAMIC_DRAW);
-        // glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+    void updateColorVBO()
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * colorInstance.size(), colorInstance.data(), GL_DYNAMIC_DRAW);
     }
 
-    std::vector<glm::vec3>* getInstanceBuffer(){
-        return &modelInstance;
+    std::vector<glm::vec3> *getInstanceBuffer()
+    {
+        return &this->modelInstance;
     }
-    std::vector<float>& getVertexBuffer(){
-        return vertexLists;
+    std::vector<glm::vec4> *getColorBuffer()
+    {
+        return &this->colorInstance;
     }
-    std::vector<unsigned int>& getIndexBuffer(){
-        return indexLists;
+    std::vector<float> &getVertexBuffer()
+    {
+        return this->vertexLists;
     }
+    std::vector<unsigned int> &getIndexBuffer()
+    {
+        return this->indexLists;
+    }
+
+public:
+    TextRenderer *text_renderer;
+    Camera camera;
 
 private:
     const int SCR_WIDTH = 1080;
@@ -200,20 +239,18 @@ private:
 
     GLFWwindow *window = nullptr;
     Shader *shader;
-    unsigned int VBO, VAO, instanceVBO, EBO; // buffer
-    float deltaTime, prevTime;               // for frame independent rendering
 
-    Camera camera;
-
+    unsigned int VBO, VAO, instanceVBO, colorVBO, EBO; // bufferid
+    float deltaTime, prevTime;                         // for frame independent rendering
 
     BaseObject *cube;
 
     //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
-    std::vector<BaseObject> cubeLists;
-    //these will be binded as a buffer
+    // these will be binded as a buffer
     std::vector<float> vertexLists;
     std::vector<unsigned int> indexLists;
     std::vector<glm::vec3> modelInstance;
+    std::vector<glm::vec4> colorInstance;
     //[TEST][TEST][TEST][TEST][TEST][TEST][TEST][TEST]
 
     // camera
