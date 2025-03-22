@@ -70,27 +70,19 @@ public:
             break;
         }
         mesh_color = color;
-        // localOrigin = glm::mat4(1.0f);
+
         position = glm::vec3(1.0f);
+        
     }
 
     MeshData mesh_data;
     glm::vec4 mesh_color;
-    // glm::mat4 localOrigin;
     glm::vec3 position;
 
-    // void rotate(float deg, glm::vec3 axis)
-    // {
-    //     localOrigin = glm::rotate(localOrigin, glm::radians(deg), axis);
-    // }
     void translate(glm::vec3 v)
     {
         position += v;
     }
-    // void resetTransform()
-    // {
-    //     localOrigin = glm::mat4(1.0f);
-    // }
 
     void loadToBuffer(std::vector<float> &vertList)
     {
