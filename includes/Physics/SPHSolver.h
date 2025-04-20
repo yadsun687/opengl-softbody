@@ -7,6 +7,7 @@
 #include <vector>
 #include <iostream>
 #include <omp.h>
+#include <algorithm>
 #include <random>
 
 #include <Physics/PhysicsObject.h>
@@ -395,21 +396,69 @@ public:
         133, 150, 134,
         134, 151, 135};
 
+    // cell offset used to iterate neightbor
+    inline static const std::vector<int> offsetCells = {
+        -1, -1, -1,
+        0, -1, -1,
+        1, -1, -1,
+        -1, 0, -1,
+        0, 0, -1,
+        1, 0, -1,
+        -1, 1, -1,
+        0, 1, -1,
+        1, 1, -1,
+        -1, -1, 0,
+        0, -1, 0,
+        1, -1, 0,
+        -1, 0, 0,
+        1, 0, 0,
+        -1, 1, 0,
+        0, 1, 0,
+        1, 1, 0,
+        -1, -1, 1,
+        0, -1, 1,
+        1, -1, 1,
+        -1, 0, 1,
+        0, 0, 1,
+        1, 0, 1,
+        -1, 1, 1,
+        0, 1, 1,
+        1, 1, 1};
+    struct SpatialCell
+    {
+        int key; // key hashed from particle position
+        int idx; // index of original particle array
+
+        SpatialCell() : key(-1), idx(-1) {}
+        SpatialCell(int k, int s) : key(k), idx(s) {}
+
+        bool operator<(const SpatialCell &idx) const
+        {
+            return (key < idx.key);
+        }
+    };
+
+    const int PRIME_X = 991;
+    const int PRIME_Y = 233;
+    const int PRIME_Z = 887;
+
     const float SPHERE_RADIUS = 1.0f;
     const float PI = 3.14159265358979f;
-    const unsigned int DIMENSION = 2;
-
-    std::vector<PhysicsObject *> scene_objs;
+    const unsigned int DIMENSION = 3;
 
     std::vector<float> densities;
     std::vector<glm::vec3> velocities;
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> predicted_positions;
     std::vector<glm::vec4> colors;
+
+    std::vector<SpatialCell> positions_hased; // store hashed position of each particles
+    std::vector<int> hash_firstIdx;           // first particle of that groupw
 
     // adjustable parameters
     glm::vec3 SPAWN_POS;
     float SPAWN_GAP;
-    int N_PARTICLES = 1000;
+    int N_PARTICLES = 2500;
     float GRAVITY;
     float MASS = 1.0f;
     float PRESSURE_MULT = 1.0f;
@@ -423,20 +472,23 @@ public:
     std::uniform_real_distribution<float> dis2;
 
 public:
-    SPHSolver(std::vector<PhysicsObject *> &objectList, float g)
+    SPHSolver(float g)
         : SPAWN_POS(glm::vec3(0.0f)),
           SPAWN_GAP(2.0f),
           gen(rd()),
           dis1(0.0f, this->PI * 2.0f),
           dis2(-1.0f, 1.0f)
     {
-        scene_objs = objectList;
-
         GRAVITY = g;
+
         densities = std::vector<float>(N_PARTICLES, 0.0f);
         velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
+
+        positions_hased.resize(N_PARTICLES);
+        hash_firstIdx = std::vector<int>(N_PARTICLES, -1);
 
         // init with 100 particles at world origin
         grid_init_particle(glm::vec3(0.0f, 0.0f, 0.0f), N_PARTICLES, SPAWN_GAP, DIMENSION);
@@ -463,39 +515,54 @@ public:
             break;
         }
         case 3:
-            void(0);
-            // for (int i = 0; i < size * size * size; i++)
-            // {
-            //     if (i >= positions.size())
-            //         return;
-            //     int z = i / (size * size);
-            //     int remainder = i % (size * size);
-            //     int y = remainder / size;
-            //     int x = remainder % size;
+            int size = cbrtf((float)total_particles);
+            for (int i = 0; i < N_PARTICLES; i++)
+            {
+                if (i >= positions.size())
+                    return;
+                int z = i / (size * size);
+                int remainder = i % (size * size);
+                int y = remainder / size;
+                int x = remainder % size;
 
-            //     positions[i].x = position.x + (float)x * gap;
-            //     positions[i].y = position.y + (float)y * gap;
-            //     positions[i].z = position.z + (float)z * gap;
-            // }
+                positions[i].x = position.x + (float)x * gap;
+                positions[i].y = position.y + (float)y * gap;
+                positions[i].z = position.z + (float)z * gap;
+            }
             break;
         }
     }
 
     void solver_step(float deltaTime, glm::vec3 boxMin = glm::vec3(0.0f), glm::vec3 boxMax = glm::vec3(0.0f))
     {
+
+        updateSpatialLookup(predicted_positions);
+
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
-
             velocities[i].y -= this->GRAVITY * deltaTime;
-            densities[i] = calculateDensity(i);
+            predicted_positions[i] = positions[i] + (velocities[i] * deltaTime);
         }
+#pragma omp parallel for
+        for (int i = 0; i < densities.size(); i++)
+        {
+            densities[i] = calculateDensity(i, true);
+        }
+        // #pragma omp parallel for
+        //         for (int i = 0; i < densities.size(); i++)
+        //         {
+        //             velocities[i].y -= this->GRAVITY * deltaTime;
+        //             densities[i] = calculateDensity(i);
+        //         }
+
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
             glm::vec3 pressureForce = calculatePressureForce(i);
             velocities[i] += (pressureForce / (densities[i] + (float)1e-6)) * deltaTime;
         }
+
 #pragma omp parallel for
         // update position & resolve collision for given bounding box
         for (int i = 0; i < densities.size(); i++)
@@ -552,7 +619,11 @@ public:
         densities = std::vector<float>(N_PARTICLES, 0.0f);
         velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
+        positions_hased.resize(N_PARTICLES);
+        hash_firstIdx = std::vector<int>(N_PARTICLES, -1);
+        updateSpatialLookup(predicted_positions);
         grid_init_particle(SPAWN_POS, densities.size(), SPAWN_GAP, DIMENSION);
     }
 
@@ -560,29 +631,69 @@ private:
     float smoothingKernel(float radius, float dst)
     {
         if (dst >= radius)
-            return 0;
-        float volume = (this->PI * powf(radius, 4)) / 6.0f;
-        return (radius - dst) * (radius - dst) / volume;
+            return 0.0f;
+
+        float factor = 8.0f / (this->PI * radius * radius * radius);
+        float q = dst / radius;
+        if (q <= 0.5f)
+        {
+            return factor * 6.0 * ((q * q * q) - (q * q)) + 1.0;
+        }
+        else if (q <= 1.0f)
+        {
+            return factor * 2.0 * (1.0 - q) * (1.0 - q) * (1.0 - q);
+        }
+        else
+        {
+            return 0.0f;
+        }
+
+        // float volume = (this->PI * powf(radius, 4)) / 6.0f;
+        // return (radius - dst) * (radius - dst) / volume;
     }
 
     float smoothingKernelDerivative(float radius, float dst)
     {
         if (dst >= radius)
-            return 0;
-        float scale = 12 / (this->PI * powf(radius, 4));
-        return (dst - radius) * scale;
+            return 0.0f;
+
+        float factor = 8.0f / (this->PI * radius * radius * radius);
+        float q = dst / radius;
+        if (q <= 0.5)
+        {
+            return (6.0f * factor * dst) / (radius * radius) * (3.0 * q - 2.0f);
+        }
+        else if (q <= 1.0f)
+        {
+            return -6.0f * factor * (1.0f - q) * (1.0f - q) / radius;
+        }
+        else
+        {
+            return 0.0f;
+        }
+
+        // float scale = 12 / (this->PI * powf(radius, 4));
+        // return (dst - radius) * scale;
     }
 
-    float calculateDensity(int i)
+    float calculateDensity(int i, bool use_predicted = false)
     {
-        float density = 0.0f;
+        float density = this->MASS * smoothingKernel(this->SMOOTHING_RADIUS, 0.0f);
 
-        for (int j = 0; j < densities.size(); j++)
-        {
-            float dst = glm::length(positions[i] - positions[j]);
-            float influence = smoothingKernel(this->SMOOTHING_RADIUS, dst);
-            density += this->MASS * influence;
-        }
+        // for (int j = 0; j < densities.size(); j++)
+        // {
+        //     float dst = glm::length(positions[i] - positions[j]);
+        //     float influence = smoothingKernel(this->SMOOTHING_RADIUS, dst);
+        //     density += this->MASS * influence;
+        // }
+
+        forEachWithinRadius(i, [&](int j)
+                            {
+        glm::vec3 pos_i = use_predicted? predicted_positions[i] : positions[i]; 
+        float dst = glm::length(pos_i - positions[j]);
+        float influence = smoothingKernel(this->SMOOTHING_RADIUS, dst);
+        density += this->MASS * influence; });
+
         return density;
     }
 
@@ -595,24 +706,35 @@ private:
     {
         glm::vec3 pressureForce(0.0f);
 
-        for (int j = 0; j < densities.size(); j++)
-        {
-            if (i == j) // skip self
-                continue;
+        // for (int j = 0; j < densities.size(); j++)
+        // {
+        //     if (i == j) // skip self
+        //         continue;
+        //     glm::vec3 offset = positions[i] - positions[j];
+        //     float sqrDst = glm::dot(offset, offset);
+        //     if (sqrDst > this->SMOOTHING_RADIUS * this->SMOOTHING_RADIUS)
+        //         continue; // skip if not within radius
+        //     float dst = sqrtf(sqrDst);
+        //     glm::vec3 dir = dst == 0.0f ? randomDirection() : offset / dst;
+        //     float slope = smoothingKernelDerivative(this->SMOOTHING_RADIUS, dst);
+        //     float density_j = densities[j];
+        //     float sharedPressure = calculateSharedPressure(densities[i], density_j);
 
-            glm::vec3 offset = positions[i] - positions[j];
-            float sqrDst = glm::dot(offset, offset);
-            if (sqrDst > this->SMOOTHING_RADIUS * this->SMOOTHING_RADIUS)
-                continue; // skip if not within radius
+        //     pressureForce += sharedPressure * dir * slope * (this->MASS / density_j);
+        // }
 
-            float dst = sqrtf(sqrDst);
-            glm::vec3 dir = dst == 0.0f ? randomDirection() : offset / dst;
-            float slope = smoothingKernelDerivative(this->SMOOTHING_RADIUS, dst);
-            float density_j = densities[j];
-            float sharedPressure = calculateSharedPressure(densities[i], density_j);
+        forEachWithinRadius(i, [&](int j)
+                            {
+                                glm::vec3 offset = positions[i] - positions[j];
+                                float sqrDst = glm::dot(offset, offset);
 
-            pressureForce += sharedPressure * dir * slope * (this->MASS / density_j);
-        }
+                                float dst = sqrtf(sqrDst);
+                                glm::vec3 dir = dst == 0.0f ? randomDirection() : offset / dst;
+                                float slope = smoothingKernelDerivative(this->SMOOTHING_RADIUS, dst);
+                                float density_j = densities[j];
+                                float sharedPressure = calculateSharedPressure(densities[i], density_j);
+                                pressureForce += sharedPressure * dir * slope * (this->MASS / density_j); });
+
         return pressureForce;
     }
 
@@ -631,4 +753,84 @@ private:
         float z = cos(theta);
         return glm::normalize(glm::vec3(x, y, 0.0f));
     }
+
+    //==============[spatial grid method]====================
+    // function to enumurate through particles 'i' using spatial grid
+    template <typename Func>
+    void forEachWithinRadius(int i, Func callback)
+    {
+        glm::ivec3 cell = positionToGrid(positions[i]);
+        float sqr_radius = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
+
+        // iterate all surrounding neighbor (3x3x3)
+        for (int j = 0; j < offsetCells.size(); j += 3)
+        {
+            int key = hashGridCell(glm::ivec3(cell.x + (offsetCells[j]), cell.y + (offsetCells[j + 1]), cell.z + (offsetCells[j + 2])));
+            int start_idx = hash_firstIdx[key];
+
+            // iterate all particles in bucket
+            for (int inCell_idx = start_idx; inCell_idx < positions_hased.size(); inCell_idx++)
+            {
+                // exit loop if none left
+                if (positions_hased[inCell_idx].key != key)
+                    break;
+
+                int neighbor_idx = positions_hased[inCell_idx].idx;
+
+                // skip self
+                if (i == neighbor_idx)
+                    continue;
+                glm::vec3 v_dist = (positions[i] - positions[neighbor_idx]);
+                float sqrDist = glm::dot(v_dist, v_dist);
+
+                // re-check if really within radius
+                if (sqrDist <= sqr_radius)
+                {
+                    callback(neighbor_idx); // Call user-supplied callback
+                }
+            }
+        }
+    }
+
+    void updateSpatialLookup(std::vector<glm::vec3> &postitions_arr)
+    {
+        // generate all hashed key for particles
+#pragma omp parallel for
+        for (int i = 0; i < postitions_arr.size(); i++)
+        {
+
+            glm::ivec3 cell_pos = positionToGrid(postitions_arr[i]);
+            int hashkey = hashGridCell(cell_pos);
+            positions_hased[i] = SpatialCell(hashkey, i);
+            hash_firstIdx[i] = -1;
+        }
+
+        // ascending sort
+        std::sort(positions_hased.begin(), positions_hased.end());
+
+        // determine first occurence of key
+#pragma omp parallel for
+        for (int i = 0; i < postitions_arr.size(); i++)
+        {
+            int key = positions_hased[i].key;
+            int keyPrev = i == 0 ? -1 : positions_hased[i - 1].key;
+            if (key != keyPrev)
+            {
+                hash_firstIdx[key] = i;
+            }
+        }
+    }
+
+    glm::ivec3 positionToGrid(glm::vec3 &pos)
+    {
+        return glm::floor(pos / (SMOOTHING_RADIUS));
+    }
+
+    int hashGridCell(glm::ivec3 cell_pos)
+    {
+        // hash
+        int key = (cell_pos.x * PRIME_X) + (cell_pos.y * PRIME_Y) + (cell_pos.z * PRIME_Z);
+        return key % positions.size();
+    }
+    //========================================================
 };

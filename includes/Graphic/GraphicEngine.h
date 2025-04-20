@@ -402,7 +402,7 @@ public:
         if (physics_data.p != nullptr && physics_data.p->sph_solver != nullptr)
             glBindBuffer(GL_ARRAY_BUFFER, physics_data.positionsVBO);
         glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->positions.size() * sizeof(glm::vec3), physics_data.p->sph_solver->positions.data(), GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, physics_data.positionsVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, physics_data.colorsVBO);
         glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->colors.size() * sizeof(glm::vec3), physics_data.p->sph_solver->colors.data(), GL_DYNAMIC_DRAW);
     }
     //===============================================================================

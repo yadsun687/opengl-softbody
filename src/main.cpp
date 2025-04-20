@@ -13,9 +13,9 @@
 
 GraphicEngine *g_engine;
 PhysicsEngine *p_engine;
-const float BOX_WIDTH = 60.0f;
-const float BOX_DEPTH = 60.0f;
-const float BOX_HEIGHT = 60.0f;
+const float BOX_WIDTH = 500.0f;
+const float BOX_DEPTH = 500.0f;
+const float BOX_HEIGHT = 500.0f;
 
 // USER INPUT SHORTCUT HERE
 static void shortcutCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -33,6 +33,7 @@ static void shortcutCallback(GLFWwindow *window, int key, int scancode, int acti
         if (key == GLFW_KEY_R && action == GLFW_RELEASE)
         {
             p_engine->sph_solver->resetSimulation();
+            g_engine->updateSolverBuffer();
         }
         // pause simulation
         if (key == GLFW_KEY_P && action == GLFW_RELEASE)

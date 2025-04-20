@@ -96,7 +96,7 @@ public:
 
     void initSPH()
     {
-        this->sph_solver = new SPHSolver(this->objectList, this->GRAVITY);
+        this->sph_solver = new SPHSolver(this->GRAVITY);
     }
 
     // bounding box area for particles
@@ -138,80 +138,5 @@ public:
             }
         }
     }
-    void initSpatialGrid()
-    {
-        // auto comp = [](const glm::vec3& a, const glm::vec3& b) { return glm::lessThan(a,b); };
-        partition_grid = std::map<glm::vec3, std::vector<int>, bool (*)(const glm::vec3 &, const glm::vec3 &)>(
-            [](const glm::vec3 &a, const glm::vec3 &b)
-            {
-                if (a.x != b.x)
-                    return a.x < b.x;
-                if (a.y != b.y)
-                    return a.y < b.y;
-                return a.z < b.z;
-            });
 
-        // empty grid with side length 4
-        //  FIXME: current only have grid -100 to 100 on every axis
-        //     partition_grid.insert(glm::vec3())
-        for (int x = -100; x <= 100; x += 10)
-        {
-            for (int y = -100; y <= 100; y += 10)
-            {
-                for (int z = -100; z <= 100; z += 10)
-                {
-                    partition_grid.insert({glm::vec3(x, y, z), {}});
-                }
-            }
-        }
-
-        for (auto &obj : objectList)
-        {
-            for (auto &grid : partition_grid)
-            {
-                // for i=1,2,3:
-                // if              c[i] < b_min[i]   then   p[i] = b_min[i]
-                // if   b_min[i] < c[i] < b_max[i]   then   p[i] = c[i]
-                // if   b_max[i] < c[i]              then   p[i] = b_max[i]
-                //
-                // if (p[1]-c[1])^2 + (p[2]-c[2])^2 + (p[3]-c[3])^2 < r^2
-                // then the box intersects the ball.
-                //
-                // Otherwise the box doesn't intersect the ball
-
-                float obj_rad = 2.0f;
-                glm::vec3 obj_center = obj->position;
-                glm::vec3 p = obj_center;
-                glm::vec3 grid_minp = grid.first;
-                glm::vec3 grid_maxp = grid.first + 10.0f;
-
-                if (obj_center.x < grid_minp.x)
-                    p.x = grid_minp.x;
-                if (obj_center.x >= grid_minp.x && obj_center.x < grid_maxp.x)
-                    p.x = obj_center.x;
-                if (obj_center.x >= grid_maxp.x)
-                    p.x = grid_maxp.x;
-
-                if (obj_center.y < grid_minp.y)
-                    p.y = grid_minp.y;
-                if (obj_center.y >= grid_minp.y && obj_center.y < grid_maxp.y)
-                    p.y = obj_center.y;
-                if (obj_center.y >= grid_maxp.y)
-                    p.y = grid_maxp.y;
-
-                if (obj_center.z < grid_minp.z)
-                    p.z = grid_minp.z;
-                if (obj_center.z >= grid_minp.z && obj_center.z < grid_maxp.z)
-                    p.z = obj_center.z;
-                if (obj_center.z >= grid_maxp.z)
-                    p.z = grid_maxp.z;
-
-                // if sphere inside this grid
-                if (glm::distance(obj_center, p) <= 2.0f)
-                {
-                    grid.second.push_back(obj->instance_id);
-                }
-            }
-        }
-    }
 };

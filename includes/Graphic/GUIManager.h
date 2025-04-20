@@ -46,19 +46,19 @@ public:
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // ImGui::ShowDemoWindow();
+        ImGui::ShowDemoWindow();
         //===========================================
         ImGui::Begin("Parameters Panel");
 
         if (solver != nullptr)
         {
-            ImGui::SliderFloat("Pressure Multiplier", &(solver->PRESSURE_MULT), 1.0, 100.0f);
+            ImGui::SliderFloat("Pressure Multiplier", &(solver->PRESSURE_MULT), 1.0, 10000.0f);
             ImGui::SliderFloat("Smoothing Radius", &(solver->SMOOTHING_RADIUS), 0.1f, 20.0f);
-            ImGui::SliderFloat("Density", &(solver->DENSITY_0), 1.0f, 1000.0f);
-            ImGui::SliderFloat("Gravity", &(solver->GRAVITY), 0.0f, 100.0f);
+            ImGui::SliderFloat("Density", &(solver->DENSITY_0), 1.0f, 10000.0f);
+            ImGui::SliderFloat("Gravity", &(solver->GRAVITY), 0.0f, 1000.0f);
             ImGui::SliderFloat("Restitution", &(solver->RESTITUTION), 0.0f, 1.0f);
 
-            ImGui::SliderInt("No. of Particles", &(solver->N_PARTICLES), 1, 10000);
+            ImGui::SliderInt("No. of Particles", &(solver->N_PARTICLES), 1, 100000);
             ImGui::SliderFloat("Spawning gap", &(solver->SPAWN_GAP), 0.0f, 10.0f);
         }
 
