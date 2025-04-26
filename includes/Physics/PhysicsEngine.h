@@ -58,28 +58,15 @@ public:
      *
      *  Then finally move the object
      */
-    void update(float deltaTime)
+    void update(float deltaTime , bool forced = false)
     {
-        if (is_pause)
+        if (is_pause && !forced)
             return;
 
         if (sph_solver != nullptr)
         {
-            sph_solver->solver_step(deltaTime, this->boxMin, this->boxMax);
+            sph_solver->solver_step(1.0f/240.0f, this->boxMin, this->boxMax);
         }
-
-        // //loop for update physics objects
-        // for (int i = 0; i < objectList.size(); i++)
-        // {
-        //     // objectList[i]->force += GRAVITY;
-        //     // objectList[i]->velocity += (objectList[i]->force / objectList[i]->mass) * deltaTime;
-        //     // objectList[i]->velocity += this->GRAVITY * deltaTime;
-        //     objectList[i]->translate(glm::vec3(objectList[i]->velocity.x, objectList[i]->velocity.y, 0.0f) * deltaTime);
-        //     // (*objectList[i]).setColorByVelocity();
-        //     // put updated value to buffer
-        //     // (*colorBuffer)[(*objectList[i]).instance_id] = (*objectList[i]).mesh_color;  // update color using heatmap
-        //     // (*instanceBuffer)[(*objectList[i]).instance_id] = (*objectList[i]).position; // replace old with updated one
-        // }
     };
 
     //  add PhysicObject to the class "objectList"

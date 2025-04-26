@@ -349,7 +349,7 @@ public:
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, SPHSolver::sphereIndices.size() * sizeof(unsigned int), SPHSolver::sphereIndices.data(), GL_STATIC_DRAW);
 
         // Position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
         glEnableVertexAttribArray(0); // (location = 0)
 
         //  config positionsVBO
@@ -368,7 +368,6 @@ public:
         glEnableVertexAttribArray(2); // (location = 2)
         glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void *)0);
         glVertexAttribDivisor(2, 1);
-
         gui_mgr->solver = physics_data.p->sph_solver; // connect solver with GUI
     }
 
@@ -391,8 +390,10 @@ public:
             // update color buffer
             glBindBuffer(GL_ARRAY_BUFFER, physics_data.colorsVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0, physics_data.p->sph_solver->colors.size() * sizeof(glm::vec4), physics_data.p->sph_solver->colors.data());
-            glBindBuffer(GL_ARRAY_BUFFER, 0);                                                                                                                   // Unbind
-            glDrawElementsInstanced(GL_TRIANGLES, SPHSolver::sphereIndices.size(), GL_UNSIGNED_INT, 0, physics_data.p->sph_solver->positions.size()); // draw instances
+            glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind
+
+            // glDrawElementsInstanced(GL_TRIANGLES, SPHSolver::sphereIndices.size(), GL_UNSIGNED_INT, 0, physics_data.p->sph_solver->positions.size()); // draw instances
+            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, SPHSolver::sphereIndices.size(), physics_data.p->sph_solver->positions.size()); // draw instances
         }
     }
 
@@ -400,10 +401,12 @@ public:
     void updateSolverBuffer()
     {
         if (physics_data.p != nullptr && physics_data.p->sph_solver != nullptr)
+        {
             glBindBuffer(GL_ARRAY_BUFFER, physics_data.positionsVBO);
-        glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->positions.size() * sizeof(glm::vec3), physics_data.p->sph_solver->positions.data(), GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, physics_data.colorsVBO);
-        glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->colors.size() * sizeof(glm::vec3), physics_data.p->sph_solver->colors.data(), GL_DYNAMIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->positions.size() * sizeof(glm::vec3), physics_data.p->sph_solver->positions.data(), GL_DYNAMIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, physics_data.colorsVBO);
+            glBufferData(GL_ARRAY_BUFFER, physics_data.p->sph_solver->colors.size() * sizeof(glm::vec4), physics_data.p->sph_solver->colors.data(), GL_DYNAMIC_DRAW);
+        }
     }
     //===============================================================================
 

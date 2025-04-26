@@ -5,6 +5,7 @@ project(SPH_FLUID_SIMULATION)
 set(SRC_HEADERFILES )
 set(SRC_SOURCEFILES )
 set(SRC_MAIN src/main.cpp)
+set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
 
 # add libralies
 find_package(glm CONFIG REQUIRED)
@@ -21,6 +22,8 @@ add_executable(SPH_FLUID_SIMULATION ${SRC_HEADERFILES} ${SRC_SOURCEFILES} ${SRC_
 file(GLOB_RECURSE SimulationApp_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.vs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.fs"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.inl"
 )
 

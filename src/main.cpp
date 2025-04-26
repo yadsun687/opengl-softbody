@@ -13,9 +13,9 @@
 
 GraphicEngine *g_engine;
 PhysicsEngine *p_engine;
-const float BOX_WIDTH = 500.0f;
-const float BOX_DEPTH = 500.0f;
-const float BOX_HEIGHT = 500.0f;
+const float BOX_WIDTH = 30.0f;
+const float BOX_DEPTH = 30.0f;
+const float BOX_HEIGHT = 30.0f;
 
 // USER INPUT SHORTCUT HERE
 static void shortcutCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -39,6 +39,12 @@ static void shortcutCallback(GLFWwindow *window, int key, int scancode, int acti
         if (key == GLFW_KEY_P && action == GLFW_RELEASE)
         {
             p_engine->is_pause = !p_engine->is_pause;
+        }
+
+        // 1 step physics update
+        if (key == GLFW_KEY_U && action == GLFW_RELEASE)
+        {   
+            p_engine->update(g_engine->deltaTime , true);
         }
     }
 }

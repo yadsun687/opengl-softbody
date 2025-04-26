@@ -1,7 +1,5 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <math.h>
 #include <glm/glm.hpp>
 #include <vector>
@@ -10,166 +8,169 @@
 #include <algorithm>
 #include <random>
 
-#include <Physics/PhysicsObject.h>
-
 class SPHSolver
 {
 public:
     // particle mesh (sphere)
     inline static const std::vector<float> sphereVertices = {
-        -0.00000004, 1.00000000, 0.00000000,
-        -0.00000004, 1.00000000, 0.00000002,
-        -0.00000003, 1.00000000, 0.00000003,
-        -0.00000002, 1.00000000, 0.00000004,
-        0.00000000, 1.00000000, 0.00000004,
-        0.00000002, 1.00000000, 0.00000004,
-        0.00000003, 1.00000000, 0.00000003,
-        0.00000004, 1.00000000, 0.00000002,
-        0.00000004, 1.00000000, -0.00000000,
-        0.00000004, 1.00000000, -0.00000002,
-        0.00000003, 1.00000000, -0.00000003,
-        0.00000002, 1.00000000, -0.00000004,
-        -0.00000000, 1.00000000, -0.00000004,
-        -0.00000002, 1.00000000, -0.00000004,
-        -0.00000003, 1.00000000, -0.00000003,
-        -0.00000004, 1.00000000, -0.00000002,
-        -0.00000004, 1.00000000, 0.00000000,
-        0.38268343, 0.92387950, 0.00000000,
-        0.35355338, 0.92387950, -0.14644662,
-        0.27059805, 0.92387950, -0.27059805,
-        0.14644660, 0.92387950, -0.35355338,
-        -0.00000002, 0.92387950, -0.38268343,
-        -0.14644665, 0.92387950, -0.35355338,
-        -0.27059805, 0.92387950, -0.27059805,
-        -0.35355341, 0.92387950, -0.14644654,
-        -0.38268343, 0.92387950, 0.00000003,
-        -0.35355338, 0.92387950, 0.14644660,
-        -0.27059799, 0.92387950, 0.27059808,
-        -0.14644650, 0.92387950, 0.35355344,
-        0.00000000, 0.92387950, 0.38268343,
-        0.14644668, 0.92387950, 0.35355335,
-        0.27059814, 0.92387950, 0.27059796,
-        0.35355338, 0.92387950, 0.14644660,
-        0.38268343, 0.92387950, -0.00000007,
-        0.70710677, 0.70710677, 0.00000000,
-        0.65328145, 0.70710677, -0.27059805,
-        0.49999997, 0.70710677, -0.49999997,
-        0.27059805, 0.70710677, -0.65328145,
-        -0.00000003, 0.70710677, -0.70710677,
-        -0.27059811, 0.70710677, -0.65328145,
-        -0.49999997, 0.70710677, -0.49999997,
-        -0.65328151, 0.70710677, -0.27059793,
-        -0.70710677, 0.70710677, 0.00000006,
-        -0.65328145, 0.70710677, 0.27059805,
-        -0.49999991, 0.70710677, 0.50000006,
-        -0.27059782, 0.70710677, 0.65328157,
-        0.00000001, 0.70710677, 0.70710677,
-        0.27059817, 0.70710677, 0.65328139,
-        0.50000018, 0.70710677, 0.49999982,
-        0.65328151, 0.70710677, 0.27059805,
-        0.70710677, 0.70710677, -0.00000012,
-        0.92387950, 0.38268346, 0.00000000,
-        0.85355335, 0.38268346, -0.35355341,
-        0.65328145, 0.38268346, -0.65328145,
-        0.35355338, 0.38268346, -0.85355335,
-        -0.00000004, 0.38268346, -0.92387950,
-        -0.35355344, 0.38268346, -0.85355335,
-        -0.65328145, 0.38268346, -0.65328145,
-        -0.85355347, 0.38268346, -0.35355324,
-        -0.92387950, 0.38268346, 0.00000008,
-        -0.85355335, 0.38268346, 0.35355338,
-        -0.65328133, 0.38268346, 0.65328157,
-        -0.35355309, 0.38268346, 0.85355347,
-        0.00000001, 0.38268346, 0.92387950,
-        0.35355353, 0.38268346, 0.85355330,
-        0.65328169, 0.38268346, 0.65328121,
-        0.85355341, 0.38268346, 0.35355338,
-        0.92387950, 0.38268346, -0.00000016,
-        1.00000000, 0.00000000, 0.00000000,
-        0.92387950, 0.00000000, -0.38268346,
-        0.70710677, 0.00000000, -0.70710677,
-        0.38268343, 0.00000000, -0.92387950,
-        -0.00000004, 0.00000000, -1.00000000,
-        -0.38268352, 0.00000000, -0.92387950,
-        -0.70710677, 0.00000000, -0.70710677,
-        -0.92387962, 0.00000000, -0.38268328,
-        -1.00000000, 0.00000000, 0.00000009,
-        -0.92387950, 0.00000000, 0.38268343,
-        -0.70710665, 0.00000000, 0.70710689,
-        -0.38268313, 0.00000000, 0.92387968,
-        0.00000001, 0.00000000, 1.00000000,
-        0.38268360, 0.00000000, 0.92387944,
-        0.70710701, 0.00000000, 0.70710653,
-        0.92387956, 0.00000000, 0.38268343,
-        1.00000000, 0.00000000, -0.00000017,
-        0.92387950, -0.38268346, 0.00000000,
-        0.85355335, -0.38268346, -0.35355341,
-        0.65328145, -0.38268346, -0.65328145,
-        0.35355338, -0.38268346, -0.85355335,
-        -0.00000004, -0.38268346, -0.92387950,
-        -0.35355344, -0.38268346, -0.85355335,
-        -0.65328145, -0.38268346, -0.65328145,
-        -0.85355347, -0.38268346, -0.35355324,
-        -0.92387950, -0.38268346, 0.00000008,
-        -0.85355335, -0.38268346, 0.35355338,
-        -0.65328133, -0.38268346, 0.65328157,
-        -0.35355309, -0.38268346, 0.85355347,
-        0.00000001, -0.38268346, 0.92387950,
-        0.35355353, -0.38268346, 0.85355330,
-        0.65328169, -0.38268346, 0.65328121,
-        0.85355341, -0.38268346, 0.35355338,
-        0.92387950, -0.38268346, -0.00000016,
-        0.70710683, -0.70710677, 0.00000000,
-        0.65328151, -0.70710677, -0.27059808,
-        0.50000000, -0.70710677, -0.50000000,
-        0.27059805, -0.70710677, -0.65328151,
-        -0.00000003, -0.70710677, -0.70710683,
-        -0.27059811, -0.70710677, -0.65328151,
-        -0.50000000, -0.70710677, -0.50000000,
-        -0.65328157, -0.70710677, -0.27059796,
-        -0.70710683, -0.70710677, 0.00000006,
-        -0.65328151, -0.70710677, 0.27059805,
-        -0.49999994, -0.70710677, 0.50000012,
-        -0.27059785, -0.70710677, 0.65328163,
-        0.00000001, -0.70710677, 0.70710683,
-        0.27059820, -0.70710677, 0.65328145,
-        0.50000018, -0.70710677, 0.49999985,
-        0.65328157, -0.70710677, 0.27059805,
-        0.70710683, -0.70710677, -0.00000012,
-        0.38268331, -0.92387956, 0.00000000,
-        0.35355327, -0.92387956, -0.14644657,
-        0.27059796, -0.92387956, -0.27059796,
-        0.14644656, -0.92387956, -0.35355327,
-        -0.00000002, -0.92387956, -0.38268331,
-        -0.14644660, -0.92387956, -0.35355327,
-        -0.27059796, -0.92387956, -0.27059796,
-        -0.35355330, -0.92387956, -0.14644650,
-        -0.38268331, -0.92387956, 0.00000003,
-        -0.35355327, -0.92387956, 0.14644656,
-        -0.27059790, -0.92387956, 0.27059799,
-        -0.14644645, -0.92387956, 0.35355332,
-        0.00000000, -0.92387956, 0.38268331,
-        0.14644663, -0.92387956, 0.35355324,
-        0.27059805, -0.92387956, 0.27059788,
-        0.35355330, -0.92387956, 0.14644656,
-        0.38268331, -0.92387956, -0.00000007,
-        -0.00000004, -1.00000000, 0.00000000,
-        -0.00000004, -1.00000000, 0.00000002,
-        -0.00000003, -1.00000000, 0.00000003,
-        -0.00000002, -1.00000000, 0.00000004,
-        0.00000000, -1.00000000, 0.00000004,
-        0.00000002, -1.00000000, 0.00000004,
-        0.00000003, -1.00000000, 0.00000003,
-        0.00000004, -1.00000000, 0.00000002,
-        0.00000004, -1.00000000, -0.00000000,
-        0.00000004, -1.00000000, -0.00000002,
-        0.00000003, -1.00000000, -0.00000003,
-        0.00000002, -1.00000000, -0.00000004,
-        -0.00000000, -1.00000000, -0.00000004,
-        -0.00000002, -1.00000000, -0.00000004,
-        -0.00000003, -1.00000000, -0.00000003,
-        -0.00000004, -1.00000000, -0.00000002,
-        -0.00000004, -1.00000000, 0.00000000};
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        -0.5f, 0.5f, 0.0f,
+        0.5f, 0.5f, 0.0f};
+    // inline static const std::vector<float> sphereVertices = {
+    //     -0.00000004, 1.00000000, 0.00000000,
+    //     -0.00000004, 1.00000000, 0.00000002,
+    //     -0.00000003, 1.00000000, 0.00000003,
+    //     -0.00000002, 1.00000000, 0.00000004,
+    //     0.00000000, 1.00000000, 0.00000004,
+    //     0.00000002, 1.00000000, 0.00000004,
+    //     0.00000003, 1.00000000, 0.00000003,
+    //     0.00000004, 1.00000000, 0.00000002,
+    //     0.00000004, 1.00000000, -0.00000000,
+    //     0.00000004, 1.00000000, -0.00000002,
+    //     0.00000003, 1.00000000, -0.00000003,
+    //     0.00000002, 1.00000000, -0.00000004,
+    //     -0.00000000, 1.00000000, -0.00000004,
+    //     -0.00000002, 1.00000000, -0.00000004,
+    //     -0.00000003, 1.00000000, -0.00000003,
+    //     -0.00000004, 1.00000000, -0.00000002,
+    //     -0.00000004, 1.00000000, 0.00000000,
+    //     0.38268343, 0.92387950, 0.00000000,
+    //     0.35355338, 0.92387950, -0.14644662,
+    //     0.27059805, 0.92387950, -0.27059805,
+    //     0.14644660, 0.92387950, -0.35355338,
+    //     -0.00000002, 0.92387950, -0.38268343,
+    //     -0.14644665, 0.92387950, -0.35355338,
+    //     -0.27059805, 0.92387950, -0.27059805,
+    //     -0.35355341, 0.92387950, -0.14644654,
+    //     -0.38268343, 0.92387950, 0.00000003,
+    //     -0.35355338, 0.92387950, 0.14644660,
+    //     -0.27059799, 0.92387950, 0.27059808,
+    //     -0.14644650, 0.92387950, 0.35355344,
+    //     0.00000000, 0.92387950, 0.38268343,
+    //     0.14644668, 0.92387950, 0.35355335,
+    //     0.27059814, 0.92387950, 0.27059796,
+    //     0.35355338, 0.92387950, 0.14644660,
+    //     0.38268343, 0.92387950, -0.00000007,
+    //     0.70710677, 0.70710677, 0.00000000,
+    //     0.65328145, 0.70710677, -0.27059805,
+    //     0.49999997, 0.70710677, -0.49999997,
+    //     0.27059805, 0.70710677, -0.65328145,
+    //     -0.00000003, 0.70710677, -0.70710677,
+    //     -0.27059811, 0.70710677, -0.65328145,
+    //     -0.49999997, 0.70710677, -0.49999997,
+    //     -0.65328151, 0.70710677, -0.27059793,
+    //     -0.70710677, 0.70710677, 0.00000006,
+    //     -0.65328145, 0.70710677, 0.27059805,
+    //     -0.49999991, 0.70710677, 0.50000006,
+    //     -0.27059782, 0.70710677, 0.65328157,
+    //     0.00000001, 0.70710677, 0.70710677,
+    //     0.27059817, 0.70710677, 0.65328139,
+    //     0.50000018, 0.70710677, 0.49999982,
+    //     0.65328151, 0.70710677, 0.27059805,
+    //     0.70710677, 0.70710677, -0.00000012,
+    //     0.92387950, 0.38268346, 0.00000000,
+    //     0.85355335, 0.38268346, -0.35355341,
+    //     0.65328145, 0.38268346, -0.65328145,
+    //     0.35355338, 0.38268346, -0.85355335,
+    //     -0.00000004, 0.38268346, -0.92387950,
+    //     -0.35355344, 0.38268346, -0.85355335,
+    //     -0.65328145, 0.38268346, -0.65328145,
+    //     -0.85355347, 0.38268346, -0.35355324,
+    //     -0.92387950, 0.38268346, 0.00000008,
+    //     -0.85355335, 0.38268346, 0.35355338,
+    //     -0.65328133, 0.38268346, 0.65328157,
+    //     -0.35355309, 0.38268346, 0.85355347,
+    //     0.00000001, 0.38268346, 0.92387950,
+    //     0.35355353, 0.38268346, 0.85355330,
+    //     0.65328169, 0.38268346, 0.65328121,
+    //     0.85355341, 0.38268346, 0.35355338,
+    //     0.92387950, 0.38268346, -0.00000016,
+    //     1.00000000, 0.00000000, 0.00000000,
+    //     0.92387950, 0.00000000, -0.38268346,
+    //     0.70710677, 0.00000000, -0.70710677,
+    //     0.38268343, 0.00000000, -0.92387950,
+    //     -0.00000004, 0.00000000, -1.00000000,
+    //     -0.38268352, 0.00000000, -0.92387950,
+    //     -0.70710677, 0.00000000, -0.70710677,
+    //     -0.92387962, 0.00000000, -0.38268328,
+    //     -1.00000000, 0.00000000, 0.00000009,
+    //     -0.92387950, 0.00000000, 0.38268343,
+    //     -0.70710665, 0.00000000, 0.70710689,
+    //     -0.38268313, 0.00000000, 0.92387968,
+    //     0.00000001, 0.00000000, 1.00000000,
+    //     0.38268360, 0.00000000, 0.92387944,
+    //     0.70710701, 0.00000000, 0.70710653,
+    //     0.92387956, 0.00000000, 0.38268343,
+    //     1.00000000, 0.00000000, -0.00000017,
+    //     0.92387950, -0.38268346, 0.00000000,
+    //     0.85355335, -0.38268346, -0.35355341,
+    //     0.65328145, -0.38268346, -0.65328145,
+    //     0.35355338, -0.38268346, -0.85355335,
+    //     -0.00000004, -0.38268346, -0.92387950,
+    //     -0.35355344, -0.38268346, -0.85355335,
+    //     -0.65328145, -0.38268346, -0.65328145,
+    //     -0.85355347, -0.38268346, -0.35355324,
+    //     -0.92387950, -0.38268346, 0.00000008,
+    //     -0.85355335, -0.38268346, 0.35355338,
+    //     -0.65328133, -0.38268346, 0.65328157,
+    //     -0.35355309, -0.38268346, 0.85355347,
+    //     0.00000001, -0.38268346, 0.92387950,
+    //     0.35355353, -0.38268346, 0.85355330,
+    //     0.65328169, -0.38268346, 0.65328121,
+    //     0.85355341, -0.38268346, 0.35355338,
+    //     0.92387950, -0.38268346, -0.00000016,
+    //     0.70710683, -0.70710677, 0.00000000,
+    //     0.65328151, -0.70710677, -0.27059808,
+    //     0.50000000, -0.70710677, -0.50000000,
+    //     0.27059805, -0.70710677, -0.65328151,
+    //     -0.00000003, -0.70710677, -0.70710683,
+    //     -0.27059811, -0.70710677, -0.65328151,
+    //     -0.50000000, -0.70710677, -0.50000000,
+    //     -0.65328157, -0.70710677, -0.27059796,
+    //     -0.70710683, -0.70710677, 0.00000006,
+    //     -0.65328151, -0.70710677, 0.27059805,
+    //     -0.49999994, -0.70710677, 0.50000012,
+    //     -0.27059785, -0.70710677, 0.65328163,
+    //     0.00000001, -0.70710677, 0.70710683,
+    //     0.27059820, -0.70710677, 0.65328145,
+    //     0.50000018, -0.70710677, 0.49999985,
+    //     0.65328157, -0.70710677, 0.27059805,
+    //     0.70710683, -0.70710677, -0.00000012,
+    //     0.38268331, -0.92387956, 0.00000000,
+    //     0.35355327, -0.92387956, -0.14644657,
+    //     0.27059796, -0.92387956, -0.27059796,
+    //     0.14644656, -0.92387956, -0.35355327,
+    //     -0.00000002, -0.92387956, -0.38268331,
+    //     -0.14644660, -0.92387956, -0.35355327,
+    //     -0.27059796, -0.92387956, -0.27059796,
+    //     -0.35355330, -0.92387956, -0.14644650,
+    //     -0.38268331, -0.92387956, 0.00000003,
+    //     -0.35355327, -0.92387956, 0.14644656,
+    //     -0.27059790, -0.92387956, 0.27059799,
+    //     -0.14644645, -0.92387956, 0.35355332,
+    //     0.00000000, -0.92387956, 0.38268331,
+    //     0.14644663, -0.92387956, 0.35355324,
+    //     0.27059805, -0.92387956, 0.27059788,
+    //     0.35355330, -0.92387956, 0.14644656,
+    //     0.38268331, -0.92387956, -0.00000007,
+    //     -0.00000004, -1.00000000, 0.00000000,
+    //     -0.00000004, -1.00000000, 0.00000002,
+    //     -0.00000003, -1.00000000, 0.00000003,
+    //     -0.00000002, -1.00000000, 0.00000004,
+    //     0.00000000, -1.00000000, 0.00000004,
+    //     0.00000002, -1.00000000, 0.00000004,
+    //     0.00000003, -1.00000000, 0.00000003,
+    //     0.00000004, -1.00000000, 0.00000002,
+    //     0.00000004, -1.00000000, -0.00000000,
+    //     0.00000004, -1.00000000, -0.00000002,
+    //     0.00000003, -1.00000000, -0.00000003,
+    //     0.00000002, -1.00000000, -0.00000004,
+    //     -0.00000000, -1.00000000, -0.00000004,
+    //     -0.00000002, -1.00000000, -0.00000004,
+    //     -0.00000003, -1.00000000, -0.00000003,
+    //     -0.00000004, -1.00000000, -0.00000002,
+    //     -0.00000004, -1.00000000, 0.00000000};
     inline static const std::vector<unsigned int> sphereIndices = {
         1, 17, 18,
         2, 18, 19,
@@ -424,6 +425,7 @@ public:
         -1, 1, 1,
         0, 1, 1,
         1, 1, 1};
+
     struct SpatialCell
     {
         int key; // key hashed from particle position
@@ -438,9 +440,10 @@ public:
         }
     };
 
-    const int PRIME_X = 991;
-    const int PRIME_Y = 233;
-    const int PRIME_Z = 887;
+    const int PRIME_X = 73856093;
+    const int PRIME_Y = 19349663;
+    const int PRIME_Z = 83492791;
+    const int BUCKET_SIZE = 100000;
 
     const float SPHERE_RADIUS = 1.0f;
     const float PI = 3.14159265358979f;
@@ -457,14 +460,17 @@ public:
 
     // adjustable parameters
     glm::vec3 SPAWN_POS;
-    float SPAWN_GAP;
-    int N_PARTICLES = 2500;
+    int N_PARTICLES = 500;
+    float SPAWN_GAP = 0.8f;
     float GRAVITY;
-    float MASS = 1.0f;
-    float PRESSURE_MULT = 1.0f;
-    float SMOOTHING_RADIUS = 2.0f;
-    float DENSITY_0 = 1000.0f;
-    float RESTITUTION = 0.5f; // for bounding box
+    float MU = 50.0f;
+    float MASS = 1.2f;
+    float PRESSURE_MULT = 100.0f;
+    float NEAR_PRESSURE_MULTIPLIER = 1.0f;
+    float SMOOTHING_RADIUS = 1.25f;
+    float DENSITY_0 = 10.0f;
+    float RESTITUTION = 0.2f; // for bounding box
+    bool USE_PREDICTED = true;
 
     std::random_device rd;
     std::mt19937 gen;
@@ -474,7 +480,6 @@ public:
 public:
     SPHSolver(float g)
         : SPAWN_POS(glm::vec3(0.0f)),
-          SPAWN_GAP(2.0f),
           gen(rd()),
           dis1(0.0f, this->PI * 2.0f),
           dis2(-1.0f, 1.0f)
@@ -484,14 +489,15 @@ public:
         densities = std::vector<float>(N_PARTICLES, 0.0f);
         velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
-        predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        predicted_positions = std::vector<glm::vec3>(positions);
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
 
         positions_hased.resize(N_PARTICLES);
-        hash_firstIdx = std::vector<int>(N_PARTICLES, -1);
+        hash_firstIdx = std::vector<int>(BUCKET_SIZE, -1);
 
         // init with 100 particles at world origin
         grid_init_particle(glm::vec3(0.0f, 0.0f, 0.0f), N_PARTICLES, SPAWN_GAP, DIMENSION);
+        updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
     }
 
     /**
@@ -511,6 +517,8 @@ public:
             {
                 positions[i].x = position.x + (float)(i % columns) * gap;
                 positions[i].y = position.y - (float)(i / columns) * gap;
+                predicted_positions[i].x = position.x + (float)(i % columns) * gap;
+                predicted_positions[i].y = position.y - (float)(i / columns) * gap;
             }
             break;
         }
@@ -518,8 +526,6 @@ public:
             int size = cbrtf((float)total_particles);
             for (int i = 0; i < N_PARTICLES; i++)
             {
-                if (i >= positions.size())
-                    return;
                 int z = i / (size * size);
                 int remainder = i % (size * size);
                 int y = remainder / size;
@@ -528,6 +534,9 @@ public:
                 positions[i].x = position.x + (float)x * gap;
                 positions[i].y = position.y + (float)y * gap;
                 positions[i].z = position.z + (float)z * gap;
+                predicted_positions[i].x = position.x + (float)x * gap;
+                predicted_positions[i].y = position.y + (float)y * gap;
+                predicted_positions[i].z = position.z + (float)z * gap;
             }
             break;
         }
@@ -536,44 +545,39 @@ public:
     void solver_step(float deltaTime, glm::vec3 boxMin = glm::vec3(0.0f), glm::vec3 boxMax = glm::vec3(0.0f))
     {
 
-        updateSpatialLookup(predicted_positions);
-
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
-            velocities[i].y -= this->GRAVITY * deltaTime;
             predicted_positions[i] = positions[i] + (velocities[i] * deltaTime);
         }
-#pragma omp parallel for
-        for (int i = 0; i < densities.size(); i++)
-        {
-            densities[i] = calculateDensity(i, true);
-        }
-        // #pragma omp parallel for
-        //         for (int i = 0; i < densities.size(); i++)
-        //         {
-        //             velocities[i].y -= this->GRAVITY * deltaTime;
-        //             densities[i] = calculateDensity(i);
-        //         }
 
+        updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
+
+        // recompute density & apply gravity
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
-            glm::vec3 pressureForce = calculatePressureForce(i);
-            velocities[i] += (pressureForce / (densities[i] + (float)1e-6)) * deltaTime;
+            densities[i] = calculateDensity(i);
+            velocities[i].y -= GRAVITY * deltaTime;
         }
 
+        // update velocity
 #pragma omp parallel for
-        // update position & resolve collision for given bounding box
         for (int i = 0; i < densities.size(); i++)
         {
+            glm::vec3 pressure_force = calculatePressureTerm(i);
+            glm::vec3 viscosity_force = calculateViscosityTerm(i);
+            velocities[i] += ((pressure_force + viscosity_force) / (densities[i] + 1e-6f)) * deltaTime;
+        }
+
+        // update position & resolve collision of given bounding box
+#pragma omp parallel for
+        for (int i = 0; i < densities.size(); i++)
+        {
+
             positions[i] += velocities[i] * deltaTime;
 
-            // if (glm::dot(boxMin, boxMax) < 1e-5)
-            // {
-            //     continue;
-            // }
-            // // Check X boundaries
+            // Check X boundaries
             if (positions[i].x - this->SPHERE_RADIUS < boxMin.x)
             {
                 positions[i].x = boxMin.x + this->SPHERE_RADIUS;
@@ -621,145 +625,174 @@ public:
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
+
         positions_hased.resize(N_PARTICLES);
-        hash_firstIdx = std::vector<int>(N_PARTICLES, -1);
-        updateSpatialLookup(predicted_positions);
+        hash_firstIdx = std::vector<int>(BUCKET_SIZE, -1);
+
         grid_init_particle(SPAWN_POS, densities.size(), SPAWN_GAP, DIMENSION);
+        updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
     }
 
 private:
-    float smoothingKernel(float radius, float dst)
+    //=================[Smoothing Kernel function]===========================
+    float smoothingKernel(float distance, float radius)
     {
-        if (dst >= radius)
-            return 0.0f;
-
-        float factor = 8.0f / (this->PI * radius * radius * radius);
-        float q = dst / radius;
+        float factor = 8.0f / (PI * radius * radius * radius);
+        float q = distance / radius;
         if (q <= 0.5f)
         {
-            return factor * 6.0 * ((q * q * q) - (q * q)) + 1.0;
+            return factor * (6.0f * ((q * q * q) - (q * q)) + 1.0f);
         }
         else if (q <= 1.0f)
         {
-            return factor * 2.0 * (1.0 - q) * (1.0 - q) * (1.0 - q);
+            return factor * 2.0f * ((1.0f - q) * (1.0f - q) * (1.0f - q));
         }
         else
         {
             return 0.0f;
         }
-
-        // float volume = (this->PI * powf(radius, 4)) / 6.0f;
-        // return (radius - dst) * (radius - dst) / volume;
     }
 
-    float smoothingKernelDerivative(float radius, float dst)
+    float smoothingKernelDerivative(float distance, float radius)
     {
-        if (dst >= radius)
-            return 0.0f;
-
-        float factor = 8.0f / (this->PI * radius * radius * radius);
-        float q = dst / radius;
-        if (q <= 0.5)
+        float factor = 8.0f / (PI * radius * radius * radius);
+        float q = distance / radius;
+        if (q <= 0.5f)
         {
-            return (6.0f * factor * dst) / (radius * radius) * (3.0 * q - 2.0f);
+            // return (factor * ((18.0f * q * q) - (12.0f * q))) / radius;
+            return (6.0f * factor * distance) / (radius * radius) * (3.0f * q - 2.0f);
         }
         else if (q <= 1.0f)
         {
-            return -6.0f * factor * (1.0f - q) * (1.0f - q) / radius;
+            return -(factor * (6.0f * (1.0f - q) * (1.0f - q))) / radius;
         }
         else
         {
             return 0.0f;
         }
-
-        // float scale = 12 / (this->PI * powf(radius, 4));
-        // return (dst - radius) * scale;
     }
 
-    float calculateDensity(int i, bool use_predicted = false)
+    float kernelPoly6(const glm::vec3 &r, float h)
     {
-        float density = this->MASS * smoothingKernel(this->SMOOTHING_RADIUS, 0.0f);
+        if (glm::length(r) >= h)
+            return 0.0f;
 
-        // for (int j = 0; j < densities.size(); j++)
-        // {
-        //     float dst = glm::length(positions[i] - positions[j]);
-        //     float influence = smoothingKernel(this->SMOOTHING_RADIUS, dst);
-        //     density += this->MASS * influence;
-        // }
+        float h2 = h * h;
+        float r2 = glm::length(r) * glm::length(r);
+        return 315.0f / (64.0f * M_PI * std::pow(h, 9)) * std::pow(h2 - r2, 3);
+    }
 
-        forEachWithinRadius(i, [&](int j)
-                            {
-        glm::vec3 pos_i = use_predicted? predicted_positions[i] : positions[i]; 
-        float dst = glm::length(pos_i - positions[j]);
-        float influence = smoothingKernel(this->SMOOTHING_RADIUS, dst);
-        density += this->MASS * influence; });
+    glm::vec3 kernelSpikyGrad(const glm::vec3 &r, float h)
+    {
+        float rl = glm::length(r);
+        if (rl >= h)
+        {
+            return glm::vec3(0.0f);
+        }
+        if (rl < 0.001f)
+        {
+            return random_direction();
+        }
 
+        float coef = -45.0f / (M_PI * std::pow(h, 6)) * std::pow(h - rl, 2) / rl;
+        return r * coef;
+    }
+
+    float kernelViscosityLap(const glm::vec3 &r, float h)
+    {
+        float rl = glm::length(r);
+        if (rl >= h || rl < 0.01f)
+            return 0.0f;
+
+        return 45.0f / (M_PI * std::pow(h, 6)) * (h - rl);
+    }
+
+    //====================[properties compute function]==============================
+    float calculateDensity(int i)
+    {
+        float density = MASS * kernelPoly6(glm::vec3(), SMOOTHING_RADIUS);
+        glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
+        forEachWithinRadius(i, false, [&](int j){
+            glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
+            density += MASS * smoothingKernel(glm::length(pos_i - pos_j), SMOOTHING_RADIUS); 
+        });
         return density;
     }
 
-    float calculateSharedPressure(float d_i, float d_j)
+    glm::vec3 calculateViscosityTerm(int i)
     {
-        return (densityToPressure(d_i) + densityToPressure(d_j)) / 2.0f;
-    }
 
-    glm::vec3 calculatePressureForce(int i)
-    {
-        glm::vec3 pressureForce(0.0f);
+        glm::vec3 force(0.0f);
+        glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
 
-        // for (int j = 0; j < densities.size(); j++)
-        // {
-        //     if (i == j) // skip self
-        //         continue;
-        //     glm::vec3 offset = positions[i] - positions[j];
-        //     float sqrDst = glm::dot(offset, offset);
-        //     if (sqrDst > this->SMOOTHING_RADIUS * this->SMOOTHING_RADIUS)
-        //         continue; // skip if not within radius
-        //     float dst = sqrtf(sqrDst);
-        //     glm::vec3 dir = dst == 0.0f ? randomDirection() : offset / dst;
-        //     float slope = smoothingKernelDerivative(this->SMOOTHING_RADIUS, dst);
-        //     float density_j = densities[j];
-        //     float sharedPressure = calculateSharedPressure(densities[i], density_j);
-
-        //     pressureForce += sharedPressure * dir * slope * (this->MASS / density_j);
-        // }
-
-        forEachWithinRadius(i, [&](int j)
+        forEachWithinRadius(i, USE_PREDICTED, [&](int j)
                             {
-                                glm::vec3 offset = positions[i] - positions[j];
-                                float sqrDst = glm::dot(offset, offset);
+                                glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
+                                glm::vec3 r_vec = pos_j - pos_i;
+                                float r_norm = glm::length(r_vec);
+                                if (r_norm <= 0.01f)
+                                {
+                                    return;
+                                }
+                                force += (velocities[j] - velocities[i]) * (kernelViscosityLap(r_vec, SMOOTHING_RADIUS) / (densities[j]+1e-6f));
+                                // force += (MASS / densities[j]) * r_vec * 2.0f * (smoothingKernelDerivative(r_norm , SMOOTHING_RADIUS) / r_norm);
+                            });
 
-                                float dst = sqrtf(sqrDst);
-                                glm::vec3 dir = dst == 0.0f ? randomDirection() : offset / dst;
-                                float slope = smoothingKernelDerivative(this->SMOOTHING_RADIUS, dst);
-                                float density_j = densities[j];
-                                float sharedPressure = calculateSharedPressure(densities[i], density_j);
-                                pressureForce += sharedPressure * dir * slope * (this->MASS / density_j); });
-
-        return pressureForce;
+        return force * MU * MASS;
+        // return force * MU * MASS;
     }
 
-    float densityToPressure(float density)
+    glm::vec3 calculatePressureTerm(int i)
     {
-        return PRESSURE_MULT * (density - this->DENSITY_0);
+        glm::vec3 force(0.0f);
+        glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
+        float rho_i = densities[i];
+        float p_i = PRESSURE_MULT * (rho_i - DENSITY_0);
+        float x_i = (p_i / ((rho_i * rho_i) + 1e-6f));
+
+        forEachWithinRadius(i, USE_PREDICTED, [&](int j)
+                            {
+            glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
+            glm::vec3 dst_vec = pos_j - pos_i;
+            float dst = glm::length(dst_vec);
+
+            // give random direction if too close
+            glm::vec3 direction = dst_vec / dst;
+
+            float rho_j = densities[j];
+            float p_j = PRESSURE_MULT * (rho_j - DENSITY_0);
+            float x_j = (p_j / ((rho_j * rho_j) + 1e-6f));
+
+            // add repulsion instead when particles are too close
+            if (dst < 0.01f) {
+                // Strong repulsion at very close distances
+                // force += -NEAR_PRESSURE_MULTIPLIER * (0.01f - dst) * (0.01f - dst) * direction;
+                force += glm::vec3(0.0f,1000.0f,0.0f);
+                return;
+            }
+
+            // force += kernelSpikyGrad(dst_vec, SMOOTHING_RADIUS) * (-MASS * (p_i + p_j) / (2.0f * densities[j]));
+            force +=  -MASS * (x_i + x_j) * direction * smoothingKernelDerivative(dst , SMOOTHING_RADIUS); 
+        }); // paper version    
+
+        return force;
     }
 
-    glm::vec3 randomDirection()
+    glm::vec3 random_direction()
     {
-        float phi = dis1(gen);
-        float costheta = dis2(gen);
-        float theta = acosf(costheta);
-        float x = sin(theta) * cos(phi);
-        float y = sin(theta) * sin(phi);
-        float z = cos(theta);
-        return glm::normalize(glm::vec3(x, y, 0.0f));
+        return glm::normalize(glm::vec3(rand() / (float)RAND_MAX - 0.5f,
+                                        rand() / (float)RAND_MAX - 0.5f,
+                                        rand() / (float)RAND_MAX - 0.5f));
     }
 
     //==============[spatial grid method]====================
+
     // function to enumurate through particles 'i' using spatial grid
     template <typename Func>
-    void forEachWithinRadius(int i, Func callback)
+    void forEachWithinRadius(int i, bool use_predicted, Func callback)
     {
-        glm::ivec3 cell = positionToGrid(positions[i]);
+        glm::vec3 pos_i = use_predicted ? predicted_positions[i] : positions[i];
+        glm::ivec3 cell = positionToGrid(pos_i);
         float sqr_radius = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
 
         // iterate all surrounding neighbor (3x3x3)
@@ -780,7 +813,7 @@ private:
                 // skip self
                 if (i == neighbor_idx)
                     continue;
-                glm::vec3 v_dist = (positions[i] - positions[neighbor_idx]);
+                glm::vec3 v_dist = (pos_i - (use_predicted ? predicted_positions[neighbor_idx] : positions[neighbor_idx]));
                 float sqrDist = glm::dot(v_dist, v_dist);
 
                 // re-check if really within radius
@@ -794,14 +827,21 @@ private:
 
     void updateSpatialLookup(std::vector<glm::vec3> &postitions_arr)
     {
-        // generate all hashed key for particles
+// generate all hashed key for particles
 #pragma omp parallel for
         for (int i = 0; i < postitions_arr.size(); i++)
         {
-
+            // turn current position into corresponding grid then hash
             glm::ivec3 cell_pos = positionToGrid(postitions_arr[i]);
             int hashkey = hashGridCell(cell_pos);
+
             positions_hased[i] = SpatialCell(hashkey, i);
+        }
+
+// reset all first index array
+#pragma omp parallel for
+        for (int i = 0; i < hash_firstIdx.size(); i++)
+        {
             hash_firstIdx[i] = -1;
         }
 
@@ -823,14 +863,36 @@ private:
 
     glm::ivec3 positionToGrid(glm::vec3 &pos)
     {
-        return glm::floor(pos / (SMOOTHING_RADIUS));
+        return glm::floor(pos / SMOOTHING_RADIUS);
     }
 
     int hashGridCell(glm::ivec3 cell_pos)
     {
         // hash
         int key = (cell_pos.x * PRIME_X) + (cell_pos.y * PRIME_Y) + (cell_pos.z * PRIME_Z);
-        return key % positions.size();
+        return abs(key) % BUCKET_SIZE;
     }
-    //========================================================
+
+    //================[particle color]========================
+    void setColorByVelocity()
+    {
+#pragma omp parallel for
+        for (int i = 0; i < velocities.size(); i++)
+        {
+            float vel = abs(glm::length(velocities[i]));
+            this->colors[i] = getValueBetweenTwoFixedColors(vel / 50.0f);
+        }
+    }
+
+    glm::vec4 getValueBetweenTwoFixedColors(float value)
+    {
+        int aR = 0, aG = 0, aB = 255; // RGB for our 1st color (blue in this case).
+        int bR = 255, bG = 0, bB = 0; // RGB for our 2nd color (red in this case).
+
+        int red = (float)(bR - aR) * value + aR;   // Evaluated as -255*value + 255.
+        int green = (float)(bG - aG) * value + aG; // Evalglm::vec3(0.0f)uates as 0.
+        int blue = (float)(bB - aB) * value + aB;  // Evaluates as 255*value + 0.
+
+        return glm::vec4((float)red / 255.0f, (float)green / 255.0f, (float)blue / 255.0f, 1.0f);
+    }
 };
