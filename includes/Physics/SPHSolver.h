@@ -449,28 +449,32 @@ public:
     const float PI = 3.14159265358979f;
     const unsigned int DIMENSION = 3;
 
+    //======[Particle properties]===========
     std::vector<float> densities;
-    std::vector<glm::vec3> velocities;
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> predicted_positions;
+    std::vector<glm::vec3> velocities;
+    std::vector<glm::vec3> accelerations;
     std::vector<glm::vec4> colors;
 
     std::vector<SpatialCell> positions_hased; // store hashed position of each particles
     std::vector<int> hash_firstIdx;           // first particle of that groupw
 
-    // adjustable parameters
-    glm::vec3 SPAWN_POS;
-    int N_PARTICLES = 500;
-    float SPAWN_GAP = 0.8f;
-    float GRAVITY;
-    float MU = 50.0f;
-    float MASS = 1.2f;
-    float PRESSURE_MULT = 100.0f;
-    float NEAR_PRESSURE_MULTIPLIER = 1.0f;
-    float SMOOTHING_RADIUS = 1.25f;
-    float DENSITY_0 = 10.0f;
+    //=======[adjustable parameters]========
+    int N_PARTICLES = 1000;
+    float MU = 0.75f;               // viscosity constant
+    float MASS = 0.02f;             // particle mass
+    float PRESSURE_MULT = 1.8f;     // AKA gas constant
+    float SMOOTHING_RADIUS = 1.35f; // for kernel
+    float DENSITY_0 = 170.0f;       // rest density
+
     float RESTITUTION = 0.2f; // for bounding box
-    bool USE_PREDICTED = true;
+    float GRAVITY;
+
+    glm::vec3 SPAWN_POS;
+    float SPAWN_GAP = 0.8f;
+    bool USE_PREDICTED = false;
+    //======================================
 
     std::random_device rd;
     std::mt19937 gen;
@@ -487,6 +491,7 @@ public:
         GRAVITY = g;
 
         densities = std::vector<float>(N_PARTICLES, 0.0f);
+        accelerations = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         predicted_positions = std::vector<glm::vec3>(positions);
@@ -498,6 +503,7 @@ public:
         // init with 100 particles at world origin
         grid_init_particle(glm::vec3(0.0f, 0.0f, 0.0f), N_PARTICLES, SPAWN_GAP, DIMENSION);
         updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
+
     }
 
     /**
@@ -542,6 +548,7 @@ public:
         }
     }
 
+    // update simulation step
     void solver_step(float deltaTime, glm::vec3 boxMin = glm::vec3(0.0f), glm::vec3 boxMax = glm::vec3(0.0f))
     {
 
@@ -553,29 +560,37 @@ public:
 
         updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
 
-        // recompute density & apply gravity
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
-            densities[i] = calculateDensity(i);
-            velocities[i].y -= GRAVITY * deltaTime;
+            densities[i] = calculateDensity(i); // recompute all density
         }
 
-        // update velocity
+        // accmulate velocity by pressure force and other
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
-            glm::vec3 pressure_force = calculatePressureTerm(i);
-            glm::vec3 viscosity_force = calculateViscosityTerm(i);
-            velocities[i] += ((pressure_force + viscosity_force) / (densities[i] + 1e-6f)) * deltaTime;
+            glm::vec3 a = (calculatePressureTerm(i) + calculateViscosityTerm(i)) / (densities[i] + 1e-6f);
+            a += glm::vec3(0.0f, -GRAVITY, 0.0f);
+
+
+            // velocities[i] += (a + (glm::vec3(0.0f, -GRAVITY, 0.0f))) * deltaTime;
+
+            // leap frog integration
+            velocities[i] += 0.5f * (accelerations[i] + a) * deltaTime;
+            accelerations[i] = a;
         }
 
-        // update position & resolve collision of given bounding box
+        setColorByVelocity();
+
+// update position & resolve collision of given bounding box
 #pragma omp parallel for
         for (int i = 0; i < densities.size(); i++)
         {
+            // positions[i] += velocities[i] * deltaTime;
 
-            positions[i] += velocities[i] * deltaTime;
+            // leap fron integration
+            positions[i] += (velocities[i] * deltaTime) + (0.5f * accelerations[i] * deltaTime * deltaTime);
 
             // Check X boundaries
             if (positions[i].x - this->SPHERE_RADIUS < boxMin.x)
@@ -621,9 +636,10 @@ public:
     void resetSimulation()
     {
         densities = std::vector<float>(N_PARTICLES, 0.0f);
-        velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        accelerations = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
 
         positions_hased.resize(N_PARTICLES);
@@ -631,6 +647,7 @@ public:
 
         grid_init_particle(SPAWN_POS, densities.size(), SPAWN_GAP, DIMENSION);
         updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
+
     }
 
 private:
@@ -672,74 +689,64 @@ private:
         }
     }
 
-    float kernelPoly6(const glm::vec3 &r, float h)
+    // general kernel
+    float poly6Kernel(float distance, float radius)
     {
-        if (glm::length(r) >= h)
+        if (distance > radius)
+        {
             return 0.0f;
-
-        float h2 = h * h;
-        float r2 = glm::length(r) * glm::length(r);
-        return 315.0f / (64.0f * M_PI * std::pow(h, 9)) * std::pow(h2 - r2, 3);
+        }
+        float x = (radius * radius - distance * distance);
+        return (315.0f / (64.0f * PI * powf(radius, 9.0))) * (x * x * x);
     }
 
-    glm::vec3 kernelSpikyGrad(const glm::vec3 &r, float h)
+    // recommended for preesure force
+    float spikyKernel(float distance, float radius)
     {
-        float rl = glm::length(r);
-        if (rl >= h)
+        if (distance > radius)
+        {
+            return 0.0f;
+        }
+        float x = radius - distance;
+        return 15.0f / (PI * powf(radius, 6.0f)) * (x * x * x);
+    }
+
+    glm::vec3 spikyKernelGradient(glm::vec3 &r_vec, float radius)
+    {
+        float r_norm = glm::length(r_vec);
+        if (r_norm > radius)
         {
             return glm::vec3(0.0f);
         }
-        if (rl < 0.001f)
-        {
-            return random_direction();
-        }
+        float h6 = radius * radius * radius * radius * radius * radius;
+        float x = (radius - r_norm) * (radius - r_norm);
 
-        float coef = -45.0f / (M_PI * std::pow(h, 6)) * std::pow(h - rl, 2) / rl;
-        return r * coef;
+        return (-45.0f / (PI * h6) * x) * (r_vec / r_norm);
     }
 
-    float kernelViscosityLap(const glm::vec3 &r, float h)
+    // recommended for viscosity force
+    float laplacianViscosityKernel(float distance, float radius)
     {
-        float rl = glm::length(r);
-        if (rl >= h || rl < 0.01f)
+        if (distance > radius)
+        {
             return 0.0f;
-
-        return 45.0f / (M_PI * std::pow(h, 6)) * (h - rl);
+        }
+        float h6 = radius * radius * radius * radius * radius * radius;
+        return (45.0f / (2.0f * PI * h6)) * (radius - distance);
     }
 
     //====================[properties compute function]==============================
     float calculateDensity(int i)
     {
-        float density = MASS * kernelPoly6(glm::vec3(), SMOOTHING_RADIUS);
-        glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
-        forEachWithinRadius(i, false, [&](int j){
-            glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
-            density += MASS * smoothingKernel(glm::length(pos_i - pos_j), SMOOTHING_RADIUS); 
-        });
-        return density;
-    }
-
-    glm::vec3 calculateViscosityTerm(int i)
-    {
-
-        glm::vec3 force(0.0f);
+        float density = MASS * poly6Kernel(0.0f, SMOOTHING_RADIUS);
         glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
 
         forEachWithinRadius(i, USE_PREDICTED, [&](int j)
                             {
-                                glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
-                                glm::vec3 r_vec = pos_j - pos_i;
-                                float r_norm = glm::length(r_vec);
-                                if (r_norm <= 0.01f)
-                                {
-                                    return;
-                                }
-                                force += (velocities[j] - velocities[i]) * (kernelViscosityLap(r_vec, SMOOTHING_RADIUS) / (densities[j]+1e-6f));
-                                // force += (MASS / densities[j]) * r_vec * 2.0f * (smoothingKernelDerivative(r_norm , SMOOTHING_RADIUS) / r_norm);
-                            });
+            glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
+            density += MASS * poly6Kernel(glm::length(pos_i-pos_j) , SMOOTHING_RADIUS); });
 
-        return force * MU * MASS;
-        // return force * MU * MASS;
+        return density;
     }
 
     glm::vec3 calculatePressureTerm(int i)
@@ -747,35 +754,31 @@ private:
         glm::vec3 force(0.0f);
         glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
         float rho_i = densities[i];
-        float p_i = PRESSURE_MULT * (rho_i - DENSITY_0);
-        float x_i = (p_i / ((rho_i * rho_i) + 1e-6f));
+        float p_i = (PRESSURE_MULT * (rho_i - DENSITY_0));
+
+        forEachWithinRadius(i, USE_PREDICTED, [&](int j)
+                            {
+                                glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
+                                glm::vec3 r_vec = pos_i - pos_j;
+
+                                float rho_j = densities[j];
+                                float p_j = (PRESSURE_MULT * (rho_j - DENSITY_0));
+
+                                force += MASS * ((p_i + p_j) / 2.0f) * spikyKernelGradient(r_vec, SMOOTHING_RADIUS); });
+        return force;
+    }
+
+    glm::vec3 calculateViscosityTerm(int i)
+    {
+        glm::vec3 force(0.0f);
+        glm::vec3 pos_i = USE_PREDICTED ? predicted_positions[i] : positions[i];
 
         forEachWithinRadius(i, USE_PREDICTED, [&](int j)
                             {
             glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
-            glm::vec3 dst_vec = pos_j - pos_i;
-            float dst = glm::length(dst_vec);
+            force += MASS * ((velocities[j] - velocities[i])/(densities[j] + 1e-6f)) * laplacianViscosityKernel(glm::length(pos_j - pos_i) , SMOOTHING_RADIUS); });
 
-            // give random direction if too close
-            glm::vec3 direction = dst_vec / dst;
-
-            float rho_j = densities[j];
-            float p_j = PRESSURE_MULT * (rho_j - DENSITY_0);
-            float x_j = (p_j / ((rho_j * rho_j) + 1e-6f));
-
-            // add repulsion instead when particles are too close
-            if (dst < 0.01f) {
-                // Strong repulsion at very close distances
-                // force += -NEAR_PRESSURE_MULTIPLIER * (0.01f - dst) * (0.01f - dst) * direction;
-                force += glm::vec3(0.0f,1000.0f,0.0f);
-                return;
-            }
-
-            // force += kernelSpikyGrad(dst_vec, SMOOTHING_RADIUS) * (-MASS * (p_i + p_j) / (2.0f * densities[j]));
-            force +=  -MASS * (x_i + x_j) * direction * smoothingKernelDerivative(dst , SMOOTHING_RADIUS); 
-        }); // paper version    
-
-        return force;
+        return MU * force;
     }
 
     glm::vec3 random_direction()
@@ -785,7 +788,7 @@ private:
                                         rand() / (float)RAND_MAX - 0.5f));
     }
 
-    //==============[spatial grid method]====================
+    //==============[Spatial grid method]====================
 
     // function to enumurate through particles 'i' using spatial grid
     template <typename Func>
@@ -880,7 +883,7 @@ private:
         for (int i = 0; i < velocities.size(); i++)
         {
             float vel = abs(glm::length(velocities[i]));
-            this->colors[i] = getValueBetweenTwoFixedColors(vel / 50.0f);
+            this->colors[i] = getValueBetweenTwoFixedColors(vel / 10.0f);
         }
     }
 
