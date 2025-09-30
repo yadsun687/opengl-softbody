@@ -9,6 +9,7 @@
 - wood_floor texture (https://polyhaven.com/a/oak_veneer_01)
  
 ## Demo
-<img width="713" height="487" alt="image" src="https://github.com/user-attachments/assets/df0dddc5-74f8-47da-a070-e1571e986932" />
+<img width="793" height="540" alt="image" src="https://github.com/user-attachments/assets/93161864-a290-4529-9fd5-13aa683a4e9e" />
 
-https://github.com/user-attachments/assets/0ab37a6a-aa2e-4f83-ac64-8fae51951aa7
+https://github.com/user-attachments/assets/da052cc8-e291-4a67-a1ae-f9c956c14907
+
