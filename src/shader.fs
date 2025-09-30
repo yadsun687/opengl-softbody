@@ -1,22 +1,23 @@
 #version 330 core
+out vec4 FragColor;
 
-uniform vec2 screen_size;
-in vec4 gl_FragCoord ;
-in vec2 TexCoords ;
-in vec4 oColor;
+in vec2 TexCoord;
+in vec3 VertPos;
+in float oStep;
 
-out vec4 fragColor;
+in vec3 oNormal;
+
+// texture samplers
+uniform sampler2D texture1;
+uniform sampler2D texture2;
+
 void main()
-{     
+{
+	vec3 LIGHT_COLOR = vec3(1.0);
+	vec3 LIGHT_POSITION = vec3(0.0f,-1.0f,-1.0f);
 
-      vec2 center = vec2(0.5, 0.5);
-      float dist = length(TexCoords - center) * 2.0; // *2 to normalize to 0-1 range
 
-      // Discard fragments outside the circle
-      if (dist > 1.0) {
-          discard;
-      }
-
-      // Output the color
-      fragColor = oColor;
+	// vec4 textureCol = mix(texture(texture1, TexCoord), texture(texture2, TexCoord), 0.2);
+	vec4 textureCol = texture(texture1 , TexCoord);
+	FragColor = textureCol;
 }

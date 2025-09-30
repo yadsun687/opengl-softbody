@@ -65,7 +65,7 @@ public:
 
         if (sph_solver != nullptr)
         {
-            sph_solver->solver_step(1.0f/240.0f, this->boxMin, this->boxMax);
+            // sph_solver->solver_step(1.0f/240.0f, this->boxMin, this->boxMax);
         }
     };
 

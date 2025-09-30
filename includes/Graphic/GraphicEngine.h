@@ -61,12 +61,12 @@ public:
     {
         glfwSetErrorCallback(glfw_error_callback);
         glfwInit();
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
+        // #ifdef __APPLE__
+        //         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+        // #endif
         window = glfwCreateWindow(width, height, "Fluid Particle Simulation", NULL, NULL);
         if (window == NULL)
         {
@@ -204,7 +204,8 @@ public:
 
         renderContainer(true);
         renderPhysicsParticles(); // render particles
-        gui_mgr->showGUI();       // render GUI
+        renderSkybox();
+        gui_mgr->showGUI(); // render GUI
 
         // text should draw last in order to blend with environment
         glm::vec3 cam_pos = this->camera.Position;
@@ -310,18 +311,81 @@ public:
 
     void renderContainer(bool is_wireframe)
     {
+        // resize box
+        physics_data.p->sph_solver->resizeContainer();
+        glBindBuffer(GL_ARRAY_BUFFER, physics_data.boxVBO); // begin config VBO
+        glBufferSubData(GL_ARRAY_BUFFER, 0, physics_data.p->sph_solver->boxVertices.size() * sizeof(float), physics_data.p->sph_solver->boxVertices.data());
+
         container_shader->use(); // swtich to container shader
         container_shader->setMat4("view", camera.GetViewMatrix());
         container_shader->setMat4("projection", projection);
         container_shader->setMat4("model", glm::mat4(1.0f));
-        glBindVertexArray(containerVAO);
+        // glBindVertexArray(containerVAO);
+        glBindVertexArray(physics_data.boxVAO);
 
         if (is_wireframe)
         {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // enter wireframe mode
         }
-        glDrawElements(GL_TRIANGLES, container_indices.size(), GL_UNSIGNED_INT, 0);
+        // glDrawElements(GL_TRIANGLES, container_indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawArrays(GL_TRIANGLES, 0, 12 * 3);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // exit wireframe mode
+    }
+
+    void setSkybox(std::string path_to_image)
+    {
+
+        glGenTextures(1, &skyboxTexture);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+
+        int width, height, nrComponents;
+        for (unsigned int i = 0; i < 6; i++)
+        {
+            unsigned char *data = stbi_load("D:/CODE/ComGraphic/project-rework/resources/images/avatar.png", &width, &height, &nrComponents, 0);
+            if (data)
+            {
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+                stbi_image_free(data);
+            }
+            else
+            {
+                std::cout << "Cubemap texture failed to load at path: " << "<single image>" << std::endl;
+                stbi_image_free(data);
+            }
+        }
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        glGenVertexArrays(1, &skyboxVAO);
+        glGenBuffers(1, &skyboxVBO);
+        glBindVertexArray(skyboxVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
+        skyboxShader = new Shader("D:/CODE/ComGraphic/project-rework/src/skybox.vs", "D:/CODE/ComGraphic/project-rework/src/skybox.fs");
+        skyboxShader->use();
+        skyboxShader->setInt("skybox", 0);
+    }
+    void renderSkybox()
+    {
+        // draw skybox as last
+        glDepthFunc(GL_LEQUAL); // change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader->use();
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        skyboxShader->setMat4("view", view);
+        skyboxShader->setMat4("projection", projection);
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
     }
 
     //======================[PhysicsEngine-related method]==========================
@@ -331,6 +395,8 @@ public:
     {
         // bind physics engine to this class member
         this->physics_data.p = physics_engine;
+
+        //=========================================================
 
         // generate all VAO/VBO pointers
         glGenVertexArrays(1, &physics_data.particlesVAO);
@@ -354,7 +420,6 @@ public:
 
         //  config positionsVBO
         // position (x,y,z) for each object
-        // we will change each object position through this one
         glBindBuffer(GL_ARRAY_BUFFER, physics_data.positionsVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * physics_data.p->sph_solver->positions.size(), physics_data.p->sph_solver->positions.data(), GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(1); // (location = 1)
@@ -362,12 +427,29 @@ public:
         glVertexAttribDivisor(1, 1);
 
         // color attribute
-        // we will change each object color through this one
         glBindBuffer(GL_ARRAY_BUFFER, physics_data.colorsVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * physics_data.p->sph_solver->colors.size(), physics_data.p->sph_solver->colors.data(), GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(2); // (location = 2)
         glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void *)0);
         glVertexAttribDivisor(2, 1);
+
+        //=========================================================
+
+        glGenVertexArrays(1, &physics_data.boxVAO);
+        glGenBuffers(1, &physics_data.boxVBO);
+
+        // start config particles VAO/VBO
+        glBindVertexArray(physics_data.boxVAO);
+
+        // bind box mesh data
+        glBindBuffer(GL_ARRAY_BUFFER, physics_data.boxVBO); // begin config VBO
+        glBufferData(GL_ARRAY_BUFFER, SPHSolver::boxVertices.size() * sizeof(float), SPHSolver::boxVertices.data(), GL_DYNAMIC_DRAW);
+        // Position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0); // (location = 0)
+
+        //=========================================================
+
         gui_mgr->solver = physics_data.p->sph_solver; // connect solver with GUI
     }
 
@@ -376,7 +458,8 @@ public:
         // if physices engine available
         if (physics_data.p != nullptr && physics_data.p->sph_solver != nullptr)
         {
-            shader->use();                                   // swtich to normal shader
+            shader->use(); // swtich to normal shader
+            glDisable(GL_BLEND);
             shader->setMat4("view", camera.GetViewMatrix()); // camera view update
             shader->setMat4("projection", projection);
 
@@ -394,6 +477,7 @@ public:
 
             // glDrawElementsInstanced(GL_TRIANGLES, SPHSolver::sphereIndices.size(), GL_UNSIGNED_INT, 0, physics_data.p->sph_solver->positions.size()); // draw instances
             glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, SPHSolver::sphereIndices.size(), physics_data.p->sph_solver->positions.size()); // draw instances
+            glEnable(GL_BLEND);
         }
     }
 
@@ -432,7 +516,8 @@ public:
     {
         PhysicsEngine *p = nullptr;
         unsigned int particlesVAO,
-            verticesVBO, indicesEBO, positionsVBO, colorsVBO;
+            verticesVBO, indicesEBO, positionsVBO, colorsVBO,
+            boxVBO, boxVAO;
     };
     PhysicsEngineData physics_data;
 
@@ -449,10 +534,8 @@ public:
     const float RENDER_DISTANCE = 1000.0f;
 
     Shader *shader;
-    Shader *container_shader;
 
     float deltaTime, prevTime; // for frame independent rendering
-    // Particle
 
     unsigned int VBO, VAO, instanceVBO, colorVBO, EBO; // bufferid
     // these will be binded as a buffer
@@ -461,12 +544,60 @@ public:
     std::vector<glm::vec3> modelInstance;
     std::vector<glm::vec4> colorInstance;
 
-    // Container for particle
+    // [Skybox]
+    unsigned int skyboxVBO, skyboxVAO, skyboxTexture;
+    std::vector<float> skyboxVertices{
+        // positions
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f,
+
+        -1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f,
+
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f,
+
+        -1.0f, 1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, 1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f};
+    Shader *skyboxShader;
+
+    // [Container for particle]
     unsigned int containerVAO, containerVBO, containerEBO;
     std::vector<float> container_vertices;
     std::vector<unsigned int> container_indices;
+    Shader *container_shader;
 
-    // camera
+    // camera]
     bool firstMouse;
     float lastX;
     float lastY;

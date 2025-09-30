@@ -11,6 +11,45 @@
 class SPHSolver
 {
 public:
+    // box mesh
+    inline static std::vector<float> boxVertices = {
+        -1.0f, -1.0f, -1.0f, // triangle 1 : begin
+        -1.0f, -1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f, // triangle 1 : end
+        1.0f, 1.0f, -1.0f, // triangle 2 : begin
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f, // triangle 2 : end
+        1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f,
+        1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f};
+
     // particle mesh (sphere)
     inline static const std::vector<float> sphereVertices = {
         -0.5f, -0.5f, 0.0f,
@@ -399,6 +438,7 @@ public:
 
     // cell offset used to iterate neightbor
     inline static const std::vector<int> offsetCells = {
+        0, 0, 0,
         -1, -1, -1,
         0, -1, -1,
         1, -1, -1,
@@ -458,7 +498,7 @@ public:
     std::vector<glm::vec4> colors;
 
     std::vector<SpatialCell> positions_hased; // store hashed position of each particles
-    std::vector<int> hash_firstIdx;           // first particle of that groupw
+    std::vector<int> hash_firstIdx;           // first particle of that group
 
     //=======[adjustable parameters]========
     int N_PARTICLES = 1000;
@@ -472,6 +512,8 @@ public:
     float GRAVITY;
 
     glm::vec3 SPAWN_POS;
+    glm::vec3 BOX_MIN;
+    glm::vec3 BOX_MAX;
     float SPAWN_GAP = 0.8f;
     bool USE_PREDICTED = false;
     //======================================
@@ -489,6 +531,8 @@ public:
           dis2(-1.0f, 1.0f)
     {
         GRAVITY = g;
+        BOX_MIN = glm::vec3(-10.0f, -10.0f, -10.0f);
+        BOX_MAX = glm::vec3(10.0f, 10.0f, 10.0f);
 
         densities = std::vector<float>(N_PARTICLES, 0.0f);
         accelerations = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
@@ -503,7 +547,6 @@ public:
         // init with 100 particles at world origin
         grid_init_particle(glm::vec3(0.0f, 0.0f, 0.0f), N_PARTICLES, SPAWN_GAP, DIMENSION);
         updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
-
     }
 
     /**
@@ -543,6 +586,13 @@ public:
                 predicted_positions[i].x = position.x + (float)x * gap;
                 predicted_positions[i].y = position.y + (float)y * gap;
                 predicted_positions[i].z = position.z + (float)z * gap;
+
+                positions[i].x = position.x + (float)x * gap;
+                positions[i].y = position.y + (float)y * gap;
+                positions[i].z = position.z + (float)z * gap;
+                predicted_positions[i].x = position.x + (float)x * gap;
+                predicted_positions[i].y = position.y + (float)y * gap;
+                predicted_positions[i].z = position.z + (float)z * gap;
             }
             break;
         }
@@ -573,7 +623,6 @@ public:
             glm::vec3 a = (calculatePressureTerm(i) + calculateViscosityTerm(i)) / (densities[i] + 1e-6f);
             a += glm::vec3(0.0f, -GRAVITY, 0.0f);
 
-
             // velocities[i] += (a + (glm::vec3(0.0f, -GRAVITY, 0.0f))) * deltaTime;
 
             // leap frog integration
@@ -581,7 +630,7 @@ public:
             accelerations[i] = a;
         }
 
-        setColorByVelocity();
+        setColorsByVelocity();
 
 // update position & resolve collision of given bounding box
 #pragma omp parallel for
@@ -636,10 +685,10 @@ public:
     void resetSimulation()
     {
         densities = std::vector<float>(N_PARTICLES, 0.0f);
-        positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
-        predicted_positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
-        velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
         accelerations = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        velocities = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        positions = std::vector<glm::vec3>(N_PARTICLES, glm::vec3(0.0f));
+        predicted_positions = std::vector<glm::vec3>(positions);
         colors = std::vector<glm::vec4>(N_PARTICLES, glm::vec4(0.8f, 0.2f, 0.2f, 1.0f));
 
         positions_hased.resize(N_PARTICLES);
@@ -647,7 +696,6 @@ public:
 
         grid_init_particle(SPAWN_POS, densities.size(), SPAWN_GAP, DIMENSION);
         updateSpatialLookup(USE_PREDICTED ? predicted_positions : positions);
-
     }
 
 private:
@@ -760,6 +808,9 @@ private:
                             {
                                 glm::vec3 pos_j = USE_PREDICTED ? predicted_positions[j] : positions[j];
                                 glm::vec3 r_vec = pos_i - pos_j;
+                                
+                                //dot(a,b) = |a||b|cos(theta)
+                                //dot(a,b)/|a||b|cos(theta)
 
                                 float rho_j = densities[j];
                                 float p_j = (PRESSURE_MULT * (rho_j - DENSITY_0));
@@ -793,6 +844,43 @@ private:
     // function to enumurate through particles 'i' using spatial grid
     template <typename Func>
     void forEachWithinRadius(int i, bool use_predicted, Func callback)
+    {
+        glm::vec3 pos_i = use_predicted ? predicted_positions[i] : positions[i];
+        glm::ivec3 cell = positionToGrid(pos_i);
+        float sqr_radius = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
+
+        // iterate all surrounding neighbor (3x3x3)
+        for (int j = 0; j < offsetCells.size(); j += 3)
+        {
+            int key = hashGridCell(glm::ivec3(cell.x + (offsetCells[j]), cell.y + (offsetCells[j + 1]), cell.z + (offsetCells[j + 2])));
+            int start_idx = hash_firstIdx[key];
+
+            // iterate all particles in bucket
+            for (int inCell_idx = start_idx; inCell_idx < positions_hased.size(); inCell_idx++)
+            {
+                // exit loop if none left
+                if (positions_hased[inCell_idx].key != key)
+                    break;
+
+                int neighbor_idx = positions_hased[inCell_idx].idx;
+
+                // skip self
+                if (i == neighbor_idx)
+                    continue;
+                glm::vec3 v_dist = (pos_i - (use_predicted ? predicted_positions[neighbor_idx] : positions[neighbor_idx]));
+                float sqrDist = glm::dot(v_dist, v_dist);
+
+                // re-check if really within radius
+                if (sqrDist <= sqr_radius)
+                {
+                    callback(neighbor_idx); // Call user-supplied callback
+                }
+            }
+        }
+    }
+
+    template <typename Func>
+    void forEachWithinRadius_buffer(int i, bool use_predicted, Func callback)
     {
         glm::vec3 pos_i = use_predicted ? predicted_positions[i] : positions[i];
         glm::ivec3 cell = positionToGrid(pos_i);
@@ -876,14 +964,72 @@ private:
         return abs(key) % BUCKET_SIZE;
     }
 
+    //================[bounding box]========================
+public:
+    void resizeContainer()
+    {
+        std::vector<float> newBoxVertices = {
+            // Front face
+            BOX_MIN.x, BOX_MIN.y, BOX_MAX.z,
+            BOX_MAX.x, BOX_MIN.y, BOX_MAX.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MAX.z,
+            BOX_MIN.x, BOX_MAX.y, BOX_MAX.z,
+
+            // Back face
+            BOX_MIN.x, BOX_MIN.y, BOX_MIN.z,
+            BOX_MIN.x, BOX_MAX.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MIN.y, BOX_MIN.z,
+
+            // Top face
+            BOX_MIN.x, BOX_MAX.y, BOX_MIN.z,
+            BOX_MIN.x, BOX_MAX.y, BOX_MAX.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MAX.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MIN.z,
+
+            // Bottom face
+            BOX_MIN.x, BOX_MIN.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MIN.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MIN.y, BOX_MAX.z,
+            BOX_MIN.x, BOX_MIN.y, BOX_MAX.z,
+
+            // Right face
+            BOX_MAX.x, BOX_MIN.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MIN.z,
+            BOX_MAX.x, BOX_MAX.y, BOX_MAX.z,
+            BOX_MAX.x, BOX_MIN.y, BOX_MAX.z,
+
+            // Left face
+            BOX_MIN.x, BOX_MIN.y, BOX_MIN.z,
+            BOX_MIN.x, BOX_MIN.y, BOX_MAX.z,
+            BOX_MIN.x, BOX_MAX.y, BOX_MAX.z,
+            BOX_MIN.x, BOX_MAX.y, BOX_MIN.z
+        };
+    
+
+        for(size_t i = 0 ; i < boxVertices.size() ; i++){
+            this->boxVertices[i] = newBoxVertices[i] ;   
+        }
+    }
+
+private:
     //================[particle color]========================
-    void setColorByVelocity()
+    void setColorsByVelocity()
     {
 #pragma omp parallel for
         for (int i = 0; i < velocities.size(); i++)
         {
-            float vel = abs(glm::length(velocities[i]));
-            this->colors[i] = getValueBetweenTwoFixedColors(vel / 10.0f);
+            float velSqr = abs(glm::dot(velocities[i], velocities[i]));
+            float minVel = 1;
+            // ignore very small velocity
+            if (velSqr < minVel * minVel)
+            {
+                this->colors[i] = getValueBetweenTwoFixedColors(0.0f);
+            }
+            else
+            {
+                this->colors[i] = getValueBetweenTwoFixedColors(velSqr / 100.0f);
+            }
         }
     }
 

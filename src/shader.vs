@@ -1,29 +1,20 @@
 #version 330 core
-
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 instancePos;
-layout (location = 2) in vec4 instanceColor;
-layout (location = 3) in vec4 textPos;
+layout (location = 1) in vec2 aTexCoord;
+layout (location = 2) in float aStep;
 
-uniform vec3 textColor;
-uniform mat4 view;
-uniform mat4 projection;
+out vec2 TexCoord;
+out vec3 VertPos;
+out float oStep;
 
-out vec2 TexCoords;
-out vec4 oColor;
+uniform mat4 transform;
 
 void main()
-{
-    
-    vec3 camera_right_dir = vec3(normalize(vec3(view[0][0] , view[1][0],view[2][0])));
-    vec3 camera_up_dir = vec3(normalize(vec3(view[0][1] , view[1][1],view[2][1])));
-    
-    float quadSize = 1.0f;
-    vec4 world_pos = vec4( (instancePos + (camera_right_dir*aPos.x*quadSize) + (camera_up_dir*aPos.y*quadSize) ) , 1.0f);
-    gl_Position = projection * view * world_pos;
+{	
+	oStep = aStep;
+	vec4 pos = transform * vec4(aPos, 1.0) + vec4(aStep,0.0f,0.0f,1.0f);
 
-    //gl_Position = projection * view * vec4(aPos + instancePos, 1.0f);
-
-    TexCoords = aPos.xy + vec2(0.5, 0.5); // Assuming aPos is from -0.5 to 0.5
-    oColor = instanceColor;
+	VertPos = pos.xyz;
+	gl_Position = transform * vec4(aPos, 1.0);
+	TexCoord = vec2(aTexCoord.x, aTexCoord.y);
 }

@@ -4,8 +4,10 @@
     "glad",
     "glfw3",
     "freetype",
+    "stb",
+    "eigen3",
     {
-      "name":"imgui",
+      "name": "imgui",
       "features": ["glfw-binding", "opengl3-binding"]
     }
   ]
